@@ -1,0 +1,71 @@
+import { basicStats, splitWords, countSyllables, round } from "../text.js";
+import type { ScoreResult } from "./types.js";
+
+function atesman(asl: number, asw: number): number {
+  return 198.825 - 40.175 * asw - 2.61 * asl;
+}
+
+function bezirciYilmaz(text: string): number {
+  const sentences = text
+    .split(/[.!?…]+(?:\s+|$)|[\n\r]+/u)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const words = splitWords(text);
+  const w = words.length || 1;
+  const s = sentences.length || 1;
+
+  let h3 = 0;
+  let h4 = 0;
+  let h5 = 0;
+  let h6plus = 0;
+  for (const word of words) {
+    const syl = countSyllables(word, "tr");
+    if (syl === 3) h3++;
+    else if (syl === 4) h4++;
+    else if (syl === 5) h5++;
+    else if (syl >= 6) h6plus++;
+  }
+
+  const ows = w / s;
+  const inner = (h3 / w) * 0.84 + (h4 / w) * 1.5 + (h5 / w) * 3.5 + (h6plus / w) * 26.25;
+  return Math.sqrt(ows * inner);
+}
+
+function interpretAtesman(score: number): string {
+  if (score >= 90) return "Çok kolay (ilkokul)";
+  if (score >= 70) return "Kolay (ortaokul)";
+  if (score >= 50) return "Orta (lise)";
+  if (score >= 30) return "Zor (üniversite)";
+  return "Çok zor (akademik)";
+}
+
+function interpretBezirci(grade: number): string {
+  if (grade <= 8) return "İlköğretim seviyesi";
+  if (grade <= 12) return "Lise seviyesi";
+  if (grade <= 16) return "Üniversite seviyesi";
+  return "Akademik / uzman seviyesi";
+}
+
+export function scoreTurkish(text: string): ScoreResult {
+  const stats = basicStats(text, "tr");
+  const at = atesman(stats.avgSentenceLength, stats.avgSyllablesPerWord);
+  const bz = bezirciYilmaz(text);
+
+  return {
+    language: "tr",
+    interpretation: `Ateşman: ${interpretAtesman(at)} | Bezirci-Yılmaz: ${interpretBezirci(bz)}`,
+    metrics: {
+      atesman: round(at),
+      bezirci_yilmaz_grade: round(bz),
+    },
+    stats: {
+      characters: stats.characters,
+      words: stats.words,
+      sentences: stats.sentences,
+      syllables: stats.syllables,
+      avg_word_length: round(stats.avgWordLength),
+      avg_sentence_length: round(stats.avgSentenceLength),
+      avg_syllables_per_word: round(stats.avgSyllablesPerWord, 3),
+    },
+  };
+}

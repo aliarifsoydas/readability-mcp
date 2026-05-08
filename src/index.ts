@@ -4,6 +4,7 @@ import { z } from "zod";
 import { scoreText, SUPPORTED_LANGUAGES, detectLanguage } from "./scorers/index.js";
 import { extractFromUrl } from "./extract.js";
 import { flowScore } from "./flow.js";
+import { seoScore, SUPPORTED_FORMULAS, type Formula } from "./seo.js";
 
 const LANG_ENUM = z.enum(["auto", ...SUPPORTED_LANGUAGES] as ["auto", ...typeof SUPPORTED_LANGUAGES]);
 
@@ -86,6 +87,63 @@ export class ReadabilityMCP extends McpAgent {
     );
 
     this.server.tool(
+      "seo_score",
+      {
+        text: z.string().min(1).describe("The text to analyze for SEO."),
+        formula: z
+          .enum(SUPPORTED_FORMULAS as unknown as [string, ...string[]])
+          .optional()
+          .describe(
+            "Single readability formula to use. If omitted, uses the language's default (Flesch for EN, Ateşman for TR, etc).",
+          ),
+        language: LANG_ENUM.optional().describe(
+          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+        ),
+        threshold: z
+          .number()
+          .min(0)
+          .max(100)
+          .optional()
+          .describe("Pass threshold on the 0-100 scale. Default 70."),
+        weight_readability: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe(
+            "Weight given to readability vs flow when computing overall_100. Default 0.5 (equal).",
+          ),
+      },
+      async ({ text, formula, language, threshold, weight_readability }) => {
+        try {
+          const result = seoScore(text, {
+            formula: formula as Formula | undefined,
+            language,
+            threshold,
+            weight_readability,
+          });
+          return {
+            content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  { error: err instanceof Error ? err.message : String(err) },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+    );
+
+    this.server.tool(
       "detect_language",
       {
         text: z.string().min(1).describe("Text to detect language of."),
@@ -147,7 +205,7 @@ export default {
               mcp: "/mcp (Streamable HTTP)",
               sse: "/sse (Server-Sent Events)",
             },
-            tools: ["score_text", "score_url", "flow_score", "detect_language", "list_supported_languages"],
+            tools: ["score_text", "score_url", "flow_score", "seo_score", "detect_language", "list_supported_languages"],
             languages: SUPPORTED_LANGUAGES,
           },
           null,

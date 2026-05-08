@@ -93,7 +93,7 @@ export class ReadabilityMCP extends McpAgent {
                 languages: SUPPORTED_LANGUAGES,
                 metrics_by_language: {
                   en: ["flesch_reading_ease", "flesch_kincaid_grade", "gunning_fog", "smog_index", "coleman_liau_index", "automated_readability_index"],
-                  tr: ["atesman", "bezirci_yilmaz_grade"],
+                  tr: ["atesman", "bezirci_yilmaz", "cetinkaya_uzun"],
                   es: ["fernandez_huerta", "szigriszt_pazos"],
                   de: ["flesch_deutsch", "wiener_sachtextformel"],
                   fr: ["kandel_moles"],

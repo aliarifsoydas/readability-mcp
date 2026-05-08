@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server that scores text readability in multiple l
 | Language | Metrics |
 |---|---|
 | English (`en`) | Flesch Reading Ease, Flesch-Kincaid Grade, Gunning Fog, SMOG, Coleman-Liau, ARI |
-| Turkish (`tr`) | Ateşman, Bezirci-Yılmaz |
+| Turkish (`tr`) | Ateşman, Bezirci-Yılmaz, Çetinkaya-Uzun |
 | Spanish (`es`) | Fernández-Huerta, Szigriszt-Pazos |
 | German (`de`) | Flesch (Deutsch), Wiener Sachtextformel |
 | French (`fr`) | Kandel-Moles |

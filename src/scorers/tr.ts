@@ -11,7 +11,6 @@ function bezirciYilmaz(text: string): number {
     .map((s) => s.trim())
     .filter(Boolean);
   const words = splitWords(text);
-  const w = words.length || 1;
   const s = sentences.length || 1;
 
   let h3 = 0;
@@ -26,9 +25,16 @@ function bezirciYilmaz(text: string): number {
     else if (syl >= 6) h6plus++;
   }
 
-  const ows = w / s;
-  const inner = (h3 / w) * 0.84 + (h4 / w) * 1.5 + (h5 / w) * 3.5 + (h6plus / w) * 26.25;
-  return Math.sqrt(ows * inner);
+  const oks = words.length / s;
+  const avgH3 = h3 / s;
+  const avgH4 = h4 / s;
+  const avgH5 = h5 / s;
+  const avgH6 = h6plus / s;
+  return Math.sqrt(oks * (avgH3 * 0.84 + avgH4 * 1.5 + avgH5 * 3.5 + avgH6 * 26.35));
+}
+
+function cetinkayaUzun(asl: number, asw: number): number {
+  return 118.823 - 25.987 * asw - 0.971 * asl;
 }
 
 function interpretAtesman(score: number): string {
@@ -39,24 +45,32 @@ function interpretAtesman(score: number): string {
   return "Çok zor (akademik)";
 }
 
-function interpretBezirci(grade: number): string {
-  if (grade <= 8) return "İlköğretim seviyesi";
-  if (grade <= 12) return "Lise seviyesi";
-  if (grade <= 16) return "Üniversite seviyesi";
-  return "Akademik / uzman seviyesi";
+function interpretBezirci(yod: number): string {
+  if (yod <= 8) return "İlköğretim seviyesi";
+  if (yod <= 12) return "Lise seviyesi";
+  if (yod <= 16) return "Lisans seviyesi";
+  return "Akademik seviye";
+}
+
+function interpretCetinkaya(score: number): string {
+  if (score >= 51) return "Bağımsız okuma düzeyi (5-7. sınıf)";
+  if (score >= 35) return "Eğitsel okuma düzeyi (8-9. sınıf)";
+  return "Yetersiz okuma düzeyi (10-12. sınıf)";
 }
 
 export function scoreTurkish(text: string): ScoreResult {
   const stats = basicStats(text, "tr");
   const at = atesman(stats.avgSentenceLength, stats.avgSyllablesPerWord);
   const bz = bezirciYilmaz(text);
+  const cu = cetinkayaUzun(stats.avgSentenceLength, stats.avgSyllablesPerWord);
 
   return {
     language: "tr",
-    interpretation: `Ateşman: ${interpretAtesman(at)} | Bezirci-Yılmaz: ${interpretBezirci(bz)}`,
+    interpretation: `Ateşman: ${interpretAtesman(at)} | Bezirci-Yılmaz: ${interpretBezirci(bz)} | Çetinkaya-Uzun: ${interpretCetinkaya(cu)}`,
     metrics: {
       atesman: round(at),
-      bezirci_yilmaz_grade: round(bz),
+      bezirci_yilmaz: round(bz),
+      cetinkaya_uzun: round(cu),
     },
     stats: {
       characters: stats.characters,

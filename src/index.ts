@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { scoreText, SUPPORTED_LANGUAGES, detectLanguage } from "./scorers/index.js";
 import { extractFromUrl } from "./extract.js";
+import { flowScore } from "./flow.js";
 
 const LANG_ENUM = z.enum(["auto", ...SUPPORTED_LANGUAGES] as ["auto", ...typeof SUPPORTED_LANGUAGES]);
 
@@ -69,6 +70,22 @@ export class ReadabilityMCP extends McpAgent {
     );
 
     this.server.tool(
+      "flow_score",
+      {
+        text: z.string().min(1).describe("The text to analyze for natural flow."),
+        language: LANG_ENUM.optional().describe(
+          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+        ),
+      },
+      async ({ text, language }) => {
+        const result = flowScore(text, language ?? "auto");
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
+
+    this.server.tool(
       "detect_language",
       {
         text: z.string().min(1).describe("Text to detect language of."),
@@ -99,6 +116,8 @@ export class ReadabilityMCP extends McpAgent {
                   fr: ["kandel_moles"],
                   it: ["gulpease"],
                 },
+                flow_metrics: ["rhythm", "lexical_diversity", "connective_density"],
+                note: "All scores including readability are normalized to 0-100 (higher = easier/more fluent). Each scoring tool returns both raw 'metrics' and 'metrics_100', plus an 'overall_100' average.",
               },
               null,
               2,
@@ -128,7 +147,7 @@ export default {
               mcp: "/mcp (Streamable HTTP)",
               sse: "/sse (Server-Sent Events)",
             },
-            tools: ["score_text", "score_url", "detect_language", "list_supported_languages"],
+            tools: ["score_text", "score_url", "flow_score", "detect_language", "list_supported_languages"],
             languages: SUPPORTED_LANGUAGES,
           },
           null,

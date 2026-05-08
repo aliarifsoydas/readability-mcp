@@ -1,11 +1,12 @@
 import type { SupportedLanguage } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { ScoreResult, RawScoreResult } from "./types.js";
 import { scoreEnglish } from "./en.js";
 import { scoreTurkish } from "./tr.js";
 import { scoreSpanish } from "./es.js";
 import { scoreGerman } from "./de.js";
 import { scoreFrench } from "./fr.js";
 import { scoreItalian } from "./it.js";
+import { normalizeMetrics, overallScore } from "../normalize.js";
 
 export const SUPPORTED_LANGUAGES: SupportedLanguage[] = ["en", "tr", "es", "de", "fr", "it"];
 
@@ -51,12 +52,16 @@ export function detectLanguage(text: string): SupportedLanguage {
 
 export function scoreText(text: string, language: SupportedLanguage | "auto" = "auto"): ScoreResult {
   const lang = language === "auto" ? detectLanguage(text) : language;
+  let raw: RawScoreResult;
   switch (lang) {
-    case "en": return scoreEnglish(text);
-    case "tr": return scoreTurkish(text);
-    case "es": return scoreSpanish(text);
-    case "de": return scoreGerman(text);
-    case "fr": return scoreFrench(text);
-    case "it": return scoreItalian(text);
+    case "en": raw = scoreEnglish(text); break;
+    case "tr": raw = scoreTurkish(text); break;
+    case "es": raw = scoreSpanish(text); break;
+    case "de": raw = scoreGerman(text); break;
+    case "fr": raw = scoreFrench(text); break;
+    case "it": raw = scoreItalian(text); break;
   }
+  const metrics_100 = normalizeMetrics(raw.metrics);
+  const overall_100 = overallScore(metrics_100);
+  return { ...raw, metrics_100, overall_100 };
 }

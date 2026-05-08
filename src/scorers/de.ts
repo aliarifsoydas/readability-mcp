@@ -1,5 +1,5 @@
 import { basicStats, splitWords, countSyllables, round } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { RawScoreResult } from "./types.js";
 
 function wienerSachtextformel(text: string): number {
   const words = splitWords(text);
@@ -27,7 +27,7 @@ function interpretFlesch(score: number): string {
   return "Schwer / Sehr schwer";
 }
 
-export function scoreGerman(text: string): ScoreResult {
+export function scoreGerman(text: string): RawScoreResult {
   const stats = basicStats(text, "de");
   const wstf = wienerSachtextformel(text);
   const flesch = fleschDeutsch(stats.avgSentenceLength, stats.avgSyllablesPerWord);

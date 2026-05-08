@@ -1,5 +1,5 @@
 import { basicStats, round } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { RawScoreResult } from "./types.js";
 
 function fernandezHuerta(asl: number, asw: number): number {
   return 206.84 - 60 * asw - 1.02 * asl;
@@ -19,7 +19,7 @@ function interpret(score: number): string {
   return "Muy difícil";
 }
 
-export function scoreSpanish(text: string): ScoreResult {
+export function scoreSpanish(text: string): RawScoreResult {
   const stats = basicStats(text, "es");
   const fh = fernandezHuerta(stats.avgSentenceLength, stats.avgSyllablesPerWord);
   const sz = szigriszt(stats.avgSentenceLength, stats.avgSyllablesPerWord);

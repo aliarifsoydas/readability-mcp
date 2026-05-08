@@ -17,10 +17,13 @@ Set `language: "auto"` (default) for stopword-based detection.
 
 ## Tools
 
-- `score_text(text, language?)` — score raw text
-- `score_url(url, language?)` — fetch a webpage, extract main content via `HTMLRewriter`, then score
-- `detect_language(text)` — return the detected language code
-- `list_supported_languages()` — list languages and their metrics
+- `score_text(text, language?)` — score raw text. Returns raw `metrics`, normalized `metrics_100`, and an `overall_100` average.
+- `score_url(url, language?)` — fetch a webpage, extract main content via `HTMLRewriter`, then score (same shape as `score_text`).
+- `flow_score(text, language?)` — score natural flow on three statistical dimensions: sentence-length rhythm, lexical diversity (MATTR), and connective/discourse marker density. Returns each metric on 0-100 plus an overall.
+- `detect_language(text)` — return the detected language code.
+- `list_supported_languages()` — list languages, readability metrics, and flow metrics.
+
+All scoring tools return scores **normalized to 0-100** where higher = easier / more fluent.
 
 ## Deploy to Cloudflare
 

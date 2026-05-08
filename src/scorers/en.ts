@@ -1,5 +1,5 @@
 import { basicStats, splitWords, countSyllables, round } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { RawScoreResult } from "./types.js";
 
 function fleschReadingEase(asl: number, asw: number): number {
   return 206.835 - 1.015 * asl - 84.6 * asw;
@@ -44,7 +44,7 @@ function interpretFlesch(score: number): string {
   return "Very difficult (college graduate)";
 }
 
-export function scoreEnglish(text: string): ScoreResult {
+export function scoreEnglish(text: string): RawScoreResult {
   const stats = basicStats(text, "en");
   const words = splitWords(text);
   const flesch = fleschReadingEase(stats.avgSentenceLength, stats.avgSyllablesPerWord);

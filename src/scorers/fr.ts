@@ -1,5 +1,5 @@
 import { basicStats, round } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { RawScoreResult } from "./types.js";
 
 function kandelMoles(asl: number, asw: number): number {
   return 207 - 1.015 * asl - 73.6 * asw;
@@ -13,7 +13,7 @@ function interpret(score: number): string {
   return "Très difficile";
 }
 
-export function scoreFrench(text: string): ScoreResult {
+export function scoreFrench(text: string): RawScoreResult {
   const stats = basicStats(text, "fr");
   const km = kandelMoles(stats.avgSentenceLength, stats.avgSyllablesPerWord);
   return {

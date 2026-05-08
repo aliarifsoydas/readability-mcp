@@ -1,5 +1,5 @@
 import { basicStats, splitWords, countSyllables, round } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { RawScoreResult } from "./types.js";
 
 function atesman(asl: number, asw: number): number {
   return 198.825 - 40.175 * asw - 2.61 * asl;
@@ -58,7 +58,7 @@ function interpretCetinkaya(score: number): string {
   return "Yetersiz okuma düzeyi (10-12. sınıf)";
 }
 
-export function scoreTurkish(text: string): ScoreResult {
+export function scoreTurkish(text: string): RawScoreResult {
   const stats = basicStats(text, "tr");
   const at = atesman(stats.avgSentenceLength, stats.avgSyllablesPerWord);
   const bz = bezirciYilmaz(text);

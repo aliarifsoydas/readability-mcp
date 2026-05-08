@@ -1,5 +1,5 @@
 import { basicStats, round } from "../text.js";
-import type { ScoreResult } from "./types.js";
+import type { RawScoreResult } from "./types.js";
 
 function gulpease(letters: number, words: number, sentences: number): number {
   const w = words || 1;
@@ -13,7 +13,7 @@ function interpret(score: number): string {
   return "Molto difficile (universitario)";
 }
 
-export function scoreItalian(text: string): ScoreResult {
+export function scoreItalian(text: string): RawScoreResult {
   const stats = basicStats(text, "it");
   const g = gulpease(stats.characters, stats.words, stats.sentences);
   return {

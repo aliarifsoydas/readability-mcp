@@ -1,5 +1,6 @@
 import { splitSentences, splitWords, type SupportedLanguage } from "./text.js";
 import { detectLanguage } from "./scorers/index.js";
+import { llmPanel, type PanelResult, DEFAULT_PANEL_MODELS } from "./llm_panel.js";
 
 const AI_PHRASES: Record<SupportedLanguage, string[]> = {
   en: [
@@ -342,6 +343,8 @@ export interface AiDetectResult {
   language: SupportedLanguage;
   composite_score: number;
   verdict: "likely_human" | "uncertain" | "likely_ai" | "very_likely_ai";
+  heuristic_score: number;
+  llm_score?: number;
   signals: {
     burstiness: BurstinessSignal;
     ai_phrases: AiPhraseSignal;
@@ -349,6 +352,7 @@ export interface AiDetectResult {
     parallel_structure: ParallelStructureSignal;
     em_dash: EmDashSignal;
     not_x_but_y: NotXButYSignal;
+    llm_panel?: PanelResult;
   };
   reasons: Reason[];
   per_sentence: SentenceFlag[];
@@ -439,6 +443,13 @@ export interface AiDetectOptions {
     em_dash: number;
     not_x_but_y: number;
   }>;
+  llm?: {
+    apiKey?: string;
+    models?: string[];
+    baseUrl?: string;
+    weight?: number;
+    timeoutMs?: number;
+  };
 }
 
 const DEFAULT_WEIGHTS = {
@@ -450,7 +461,7 @@ const DEFAULT_WEIGHTS = {
   not_x_but_y: 0.10,
 };
 
-export function aiDetectScore(text: string, opts: AiDetectOptions = {}): AiDetectResult {
+export async function aiDetectScore(text: string, opts: AiDetectOptions = {}): Promise<AiDetectResult> {
   const lang = opts.language && opts.language !== "auto" ? opts.language : detectLanguage(text);
   const sentences = splitSentences(text);
   const paragraphs = splitParagraphs(text);
@@ -465,7 +476,7 @@ export function aiDetectScore(text: string, opts: AiDetectOptions = {}): AiDetec
 
   const w = { ...DEFAULT_WEIGHTS, ...(opts.weights ?? {}) };
   const total = w.burstiness + w.ai_phrases + w.fragment_lists + w.parallel_structure + w.em_dash + w.not_x_but_y;
-  const composite =
+  const heuristic_score =
     (burstiness.score * w.burstiness +
       ai_phrases.score * w.ai_phrases +
       fragment_lists.score * w.fragment_lists +
@@ -481,18 +492,55 @@ export function aiDetectScore(text: string, opts: AiDetectOptions = {}): AiDetec
   if (em_dash.reason) reasons.push(em_dash.reason);
   if (not_x_but_y.reason) reasons.push(not_x_but_y.reason);
 
+  let panel: PanelResult | undefined;
+  let llm_score: number | undefined;
+  if (opts.llm?.apiKey) {
+    panel = await llmPanel(text, lang, {
+      apiKey: opts.llm.apiKey,
+      models: opts.llm.models,
+      baseUrl: opts.llm.baseUrl,
+      timeoutMs: opts.llm.timeoutMs,
+    });
+    if (panel.models_used.length > 0) {
+      llm_score = panel.composite_score;
+      for (const c of panel.consensus_reasons) {
+        const dist = c.severity_distribution;
+        const sev: "low" | "medium" | "high" = dist.high > 0 ? "high" : dist.medium > 0 ? "medium" : "low";
+        reasons.push({
+          code: `llm_consensus:${c.code}`,
+          severity: sev,
+          explanation: `${c.judges.length} judge consensus — ${c.representative_explanation}`,
+          evidence: { judges: c.judges, quoted: c.quoted_evidence, severity_distribution: dist },
+        });
+      }
+    }
+  }
+
+  const llmWeight = opts.llm?.weight ?? 0.6;
+  const composite_score =
+    llm_score !== undefined
+      ? heuristic_score * (1 - llmWeight) + llm_score * llmWeight
+      : heuristic_score;
+
   const adviceMap = ADVICE[lang] ?? ADVICE.en;
   const summary_advice: string[] = [];
   for (const r of reasons) {
     const a = adviceMap[r.code];
     if (a) summary_advice.push(a);
   }
+  if (panel?.combined_recommendations) {
+    for (const rec of panel.combined_recommendations) {
+      if (!summary_advice.includes(rec)) summary_advice.push(rec);
+    }
+  }
 
   return {
     language: lang,
-    composite_score: Math.round(composite * 100) / 100,
-    verdict: deriveVerdict(composite, reasons),
-    signals: { burstiness, ai_phrases, fragment_lists, parallel_structure, em_dash, not_x_but_y },
+    composite_score: Math.round(composite_score * 100) / 100,
+    verdict: deriveVerdict(composite_score, reasons),
+    heuristic_score: Math.round(heuristic_score * 100) / 100,
+    llm_score: llm_score !== undefined ? Math.round(llm_score * 100) / 100 : undefined,
+    signals: { burstiness, ai_phrases, fragment_lists, parallel_structure, em_dash, not_x_but_y, llm_panel: panel },
     reasons,
     per_sentence: buildPerSentence(sentences, lang, parallel_structure.runs, ai_phrases.hits),
     summary_advice,

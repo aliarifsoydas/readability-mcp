@@ -151,9 +151,28 @@ export class ReadabilityMCP extends McpAgent {
         language: LANG_ENUM.optional().describe(
           "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
         ),
+        models: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Optional OpenRouter model IDs for the LLM judge panel (e.g. ['anthropic/claude-sonnet-4.6','openai/gpt-5.4']). Requires OPENROUTER_API_KEY secret. Defaults to a 3-model ensemble.",
+          ),
+        llm_weight: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("Weight of LLM panel score vs heuristic in composite_score. Default 0.6."),
       },
-      async ({ text, language }) => {
-        const result = aiDetectScore(text, { language });
+      async ({ text, language, models, llm_weight }) => {
+        const env = (this as unknown as { env: Env }).env;
+        const apiKey = env.OPENROUTER_API_KEY;
+        const result = await aiDetectScore(text, {
+          language,
+          llm: apiKey
+            ? { apiKey, models, weight: llm_weight }
+            : undefined,
+        });
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };
@@ -206,6 +225,7 @@ export class ReadabilityMCP extends McpAgent {
 
 interface Env {
   MCP_OBJECT: DurableObjectNamespace;
+  OPENROUTER_API_KEY?: string;
 }
 
 export default {

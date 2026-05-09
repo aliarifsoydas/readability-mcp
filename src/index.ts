@@ -5,6 +5,7 @@ import { scoreText, SUPPORTED_LANGUAGES, detectLanguage } from "./scorers/index.
 import { extractFromUrl } from "./extract.js";
 import { flowScore } from "./flow.js";
 import { seoScore, SUPPORTED_FORMULAS, type Formula } from "./seo.js";
+import { aiDetectScore } from "./aidetect.js";
 
 const LANG_ENUM = z.enum(["auto", ...SUPPORTED_LANGUAGES] as ["auto", ...typeof SUPPORTED_LANGUAGES]);
 
@@ -144,6 +145,22 @@ export class ReadabilityMCP extends McpAgent {
     );
 
     this.server.tool(
+      "ai_score",
+      {
+        text: z.string().min(1).describe("The text to score for AI-likeness."),
+        language: LANG_ENUM.optional().describe(
+          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+        ),
+      },
+      async ({ text, language }) => {
+        const result = aiDetectScore(text, { language });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
+
+    this.server.tool(
       "detect_language",
       {
         text: z.string().min(1).describe("Text to detect language of."),
@@ -205,7 +222,7 @@ export default {
               mcp: "/mcp (Streamable HTTP)",
               sse: "/sse (Server-Sent Events)",
             },
-            tools: ["score_text", "score_url", "flow_score", "seo_score", "detect_language", "list_supported_languages"],
+            tools: ["score_text", "score_url", "flow_score", "seo_score", "ai_score", "detect_language", "list_supported_languages"],
             languages: SUPPORTED_LANGUAGES,
           },
           null,

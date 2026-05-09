@@ -21,6 +21,7 @@ Set `language: "auto"` (default) for stopword-based detection.
 - `score_url(url, language?)` — fetch a webpage, extract main content via `HTMLRewriter`, then score (same shape as `score_text`).
 - `flow_score(text, language?)` — score natural flow on three statistical dimensions: sentence-length rhythm, lexical diversity (MATTR), and connective/discourse marker density. Returns each metric on 0-100 plus an overall.
 - `seo_score(text, formula?, language?, threshold?, weight_readability?)` — single-formula readability + flow combined for SEO. Returns `passed` boolean, `verdict`, and concrete suggestions in the detected language. Defaults: Flesch for EN, Ateşman for TR, etc; threshold 70; equal weights.
+- `ai_score(text, language?)` — score how AI-like a text is on six explainable heuristic signals: burstiness (sentence-length variance), AI-tell phrases (multilingual lexicon), fragment-list paragraphs (`X. Y. Z.` runs), parallel structure runs, em-dash overuse, and "not X but Y" rhetorical pattern. Returns `composite_score` (0-100), `verdict`, per-signal scores with `reason` (code, severity, explanation, evidence, location), `per_sentence` flags, and `summary_advice`. Heuristic-only — Workers-native, no LLM call required.
 - `detect_language(text)` — return the detected language code.
 - `list_supported_languages()` — list languages, readability metrics, and flow metrics.
 

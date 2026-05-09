@@ -1,6 +1,6 @@
 import { splitSentences, splitWords, type SupportedLanguage } from "./text.js";
 import { detectLanguage } from "./scorers/index.js";
-import { llmPanel, type PanelResult, DEFAULT_PANEL_MODELS } from "./llm_panel.js";
+import { llmPanel, modelsForTier, type PanelResult, type PanelTier } from "./llm_panel.js";
 
 const AI_PHRASES: Record<SupportedLanguage, string[]> = {
   en: [
@@ -445,6 +445,7 @@ export interface AiDetectOptions {
   }>;
   llm?: {
     apiKey?: string;
+    tier?: PanelTier;
     models?: string[];
     baseUrl?: string;
     weight?: number;
@@ -494,10 +495,14 @@ export async function aiDetectScore(text: string, opts: AiDetectOptions = {}): P
 
   let panel: PanelResult | undefined;
   let llm_score: number | undefined;
-  if (opts.llm?.apiKey) {
+  const wantsPanel = !!opts.llm?.apiKey && (opts.llm?.tier !== undefined || (opts.llm?.models && opts.llm.models.length > 0));
+  if (wantsPanel && opts.llm?.apiKey) {
+    const models = opts.llm.models && opts.llm.models.length > 0
+      ? opts.llm.models
+      : modelsForTier(opts.llm.tier ?? "premium");
     panel = await llmPanel(text, lang, {
       apiKey: opts.llm.apiKey,
-      models: opts.llm.models,
+      models,
       baseUrl: opts.llm.baseUrl,
       timeoutMs: opts.llm.timeoutMs,
     });

@@ -21,7 +21,26 @@ Set `language: "auto"` (default) for stopword-based detection.
 - `score_url(url, language?)` — fetch a webpage, extract main content via `HTMLRewriter`, then score (same shape as `score_text`).
 - `flow_score(text, language?)` — score natural flow on three statistical dimensions: sentence-length rhythm, lexical diversity (MATTR), and connective/discourse marker density. Returns each metric on 0-100 plus an overall.
 - `seo_score(text, formula?, language?, threshold?, weight_readability?)` — single-formula readability + flow combined for SEO. Returns `passed` boolean, `verdict`, and concrete suggestions in the detected language. Defaults: Flesch for EN, Ateşman for TR, etc; threshold 70; equal weights.
-- `ai_score(text, language?, models?, llm_weight?)` — score how AI-like a text is. Always runs **six heuristic signals** in the Worker: burstiness (sentence-length variance), AI-tell phrases (multilingual lexicon), fragment-list paragraphs (`X. Y. Z.` runs), parallel structure runs, em-dash overuse, and "not X but Y" rhetorical pattern. If the `OPENROUTER_API_KEY` secret is set, **also runs an LLM judge panel** in parallel (default ensemble: `anthropic/claude-sonnet-4.6` + `openai/gpt-5.4` + `google/gemini-3.1-pro-preview`). Each judge returns a 0-100 score with quoted evidence; the panel surfaces **consensus reasons** (codes flagged by ≥2 judges) and an `agreement` indicator (high/medium/low) based on score variance. Composite combines `heuristic_score * (1-llm_weight) + llm_score * llm_weight` (default `llm_weight=0.6`). Returns `composite_score`, `verdict` (escalated by max signal severity, not just average), per-signal details, `per_sentence` flags, and `summary_advice`.
+- `ai_score(text, language?, tier?, models?, llm_weight?)` — score how AI-like a text is. Always runs **six heuristic signals** in the Worker: burstiness (sentence-length variance), AI-tell phrases (multilingual lexicon), fragment-list paragraphs (`X. Y. Z.` runs), parallel structure runs, em-dash overuse, and "not X but Y" rhetorical pattern. The `tier` parameter controls the LLM judge panel:
+  - `tier: "heuristic"` (default) — heuristics only, ~5ms, **$0**
+  - `tier: "cheap"` — adds a 3-model ensemble (`claude-haiku-4.5` + `gpt-5.4-mini` + `gemini-3.1-flash-lite`), ~10s, **~$0.012/call**
+  - `tier: "premium"` — adds a frontier ensemble (`claude-sonnet-4.6` + `gpt-5.4` + `gemini-3.1-pro-preview`), ~25s, **~$0.066/call**
+  - Or pass `models: [...]` for a custom panel.
+
+  Both LLM tiers require `OPENROUTER_API_KEY` as a Worker secret. Each judge returns a 0-100 score with quoted evidence; the panel surfaces **consensus reasons** (codes flagged by ≥2 judges) and an `agreement` indicator (high/medium/low) from score variance. Composite blends `heuristic_score * (1-llm_weight) + llm_score * llm_weight` (default `llm_weight=0.6`). Output includes `total_cost_usd` per panel call for budget tracking. Verdict escalates by max signal severity, so a single high-severity finding isn't drowned out by averaging.
+
+  **Recommended pipeline pattern for iterative humanization:**
+  ```
+  while not passing:
+      result = ai_score(text)                    # heuristic, free
+      if result.composite_score < 30:
+          break                                  # heuristic clean enough to test deeper
+      # apply targeted fixes from result.summary_advice
+  result = ai_score(text, tier="cheap")          # mid-tier check
+  if result.composite_score < 35:
+      result = ai_score(text, tier="premium")    # final QA
+  ```
+  Typical cost: **$0.012–0.08 per article** depending on how often premium runs.
 - `detect_language(text)` — return the detected language code.
 - `list_supported_languages()` — list languages, readability metrics, and flow metrics.
 

@@ -16,6 +16,10 @@ export interface LlmJudgeResult {
   per_paragraph: { idx: number; score: number; note?: string }[];
   key_recommendations: string[];
   model: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cost_usd?: number;
+  ms?: number;
   raw?: unknown;
   error?: string;
 }
@@ -131,6 +135,7 @@ export async function llmJudge(
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const t0 = Date.now();
 
   try {
     const resp = await fetch(`${baseUrl}/chat/completions`, {
@@ -161,8 +166,11 @@ export async function llmJudge(
 
     const data = (await resp.json()) as {
       choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
     };
     const content = data.choices?.[0]?.message?.content ?? "";
+    const usage = data.usage ?? {};
+    const ms = Date.now() - t0;
     const parsed = safeJsonParse(content);
     if (!parsed || typeof parsed !== "object") {
       return errorResult(model, `Unparseable JSON from model: ${content.slice(0, 200)}`);
@@ -216,6 +224,10 @@ export async function llmJudge(
       per_paragraph,
       key_recommendations,
       model,
+      prompt_tokens: usage.prompt_tokens,
+      completion_tokens: usage.completion_tokens,
+      cost_usd: usage.cost,
+      ms,
     };
   } catch (e) {
     return errorResult(model, e instanceof Error ? e.message : String(e));

@@ -1,11 +1,25 @@
 import type { SupportedLanguage } from "./text.js";
 import { llmJudge, type LlmJudgeResult } from "./llm_judge.js";
 
-export const DEFAULT_PANEL_MODELS = [
+export const PREMIUM_PANEL_MODELS = [
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-5.4",
   "google/gemini-3.1-pro-preview",
 ];
+
+export const CHEAP_PANEL_MODELS = [
+  "anthropic/claude-haiku-4.5",
+  "openai/gpt-5.4-mini",
+  "google/gemini-3.1-flash-lite",
+];
+
+export const DEFAULT_PANEL_MODELS = PREMIUM_PANEL_MODELS;
+
+export type PanelTier = "cheap" | "premium";
+
+export function modelsForTier(tier: PanelTier): string[] {
+  return tier === "cheap" ? CHEAP_PANEL_MODELS : PREMIUM_PANEL_MODELS;
+}
 
 export interface PanelOptions {
   apiKey: string;
@@ -26,12 +40,13 @@ export interface PanelResult {
   models_used: string[];
   models_failed: { model: string; error: string }[];
   composite_score: number;
-  per_judge_scores: { model: string; score: number; verdict: string }[];
+  per_judge_scores: { model: string; score: number; verdict: string; cost_usd: number; ms: number }[];
   variance: number;
   agreement: "high" | "medium" | "low";
   consensus_reasons: ConsensusReason[];
   unique_reasons_per_judge: { model: string; reasons: LlmJudgeResult["reasons"] }[];
   combined_recommendations: string[];
+  total_cost_usd: number;
   raw_judges: { model: string; result: LlmJudgeResult }[];
 }
 
@@ -134,16 +149,25 @@ export async function llmPanel(
   for (const j of ok) for (const r of j.result.key_recommendations) recSet.add(r);
   const combined_recommendations = Array.from(recSet).slice(0, 10);
 
+  const total_cost_usd = ok.reduce((s, j) => s + (j.result.cost_usd ?? 0), 0);
+
   return {
     models_used: ok.map((s) => s.model),
     models_failed: failed,
     composite_score: Math.round(composite * 100) / 100,
-    per_judge_scores: ok.map((s) => ({ model: s.model, score: s.result.score, verdict: s.result.verdict })),
+    per_judge_scores: ok.map((s) => ({
+      model: s.model,
+      score: s.result.score,
+      verdict: s.result.verdict,
+      cost_usd: s.result.cost_usd ?? 0,
+      ms: s.result.ms ?? 0,
+    })),
     variance: Math.round(variance(scores) * 100) / 100,
     agreement: classifyAgreement(sd),
     consensus_reasons: consensus,
     unique_reasons_per_judge,
     combined_recommendations,
+    total_cost_usd: Math.round(total_cost_usd * 1e6) / 1e6,
     raw_judges: settled,
   };
 }

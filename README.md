@@ -46,6 +46,12 @@ Set `language: "auto"` (default) for stopword-based detection.
 
 All scoring tools return scores **normalized to 0-100** where higher = easier / more fluent.
 
+## Browse the tool catalog
+
+- `GET /docs` — human-readable HTML page documenting every tool, its parameters, output shape, and example request/response. Auto-rendered when a browser opens `/`.
+- `GET /openapi.json` — OpenAPI 3.1 spec describing each tool's input/output. Useful for tool generators and AI clients that consume schemas.
+- `GET /` (with `Accept: application/json`) — short JSON manifest with endpoint URLs and tool names.
+
 ## Deploy to Cloudflare
 
 ### Option A — connect this GitHub repo to Cloudflare (no CLI needed)

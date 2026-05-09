@@ -6,6 +6,7 @@ import { extractFromUrl } from "./extract.js";
 import { flowScore } from "./flow.js";
 import { seoScore, SUPPORTED_FORMULAS, type Formula } from "./seo.js";
 import { aiDetectScore } from "./aidetect.js";
+import { renderDocsHtml, renderOpenApi } from "./docs.js";
 
 const LANG_ENUM = z.enum(["auto", ...SUPPORTED_LANGUAGES] as ["auto", ...typeof SUPPORTED_LANGUAGES]);
 
@@ -245,6 +246,12 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/" || url.pathname === "") {
+      const accept = request.headers.get("accept") ?? "";
+      if (accept.includes("text/html")) {
+        return new Response(renderDocsHtml(), {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
       return new Response(
         JSON.stringify(
           {
@@ -253,6 +260,8 @@ export default {
             endpoints: {
               mcp: "/mcp (Streamable HTTP)",
               sse: "/sse (Server-Sent Events)",
+              docs: "/docs (HTML)",
+              openapi: "/openapi.json",
             },
             tools: ["score_text", "score_url", "flow_score", "seo_score", "ai_score", "detect_language", "list_supported_languages"],
             languages: SUPPORTED_LANGUAGES,
@@ -262,6 +271,18 @@ export default {
         ),
         { headers: { "content-type": "application/json" } },
       );
+    }
+
+    if (url.pathname === "/docs") {
+      return new Response(renderDocsHtml(), {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+
+    if (url.pathname === "/openapi.json") {
+      return new Response(JSON.stringify(renderOpenApi(), null, 2), {
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
     }
 
     if (url.pathname === "/sse" || url.pathname.startsWith("/sse/")) {

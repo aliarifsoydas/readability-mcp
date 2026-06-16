@@ -116,7 +116,13 @@ export function renderUiHtml(): string {
     font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
     color:var(--ink-soft); padding:8px 2px; border-bottom:1px solid var(--rule); margin-bottom:30px;
   }
-  .dateline span:nth-child(2){ letter-spacing:.05em; }
+  .uitoggle{ display:flex; gap:2px; letter-spacing:0; }
+  .uitoggle button{
+    background:transparent; border:none; cursor:pointer; font-family:var(--mono); font-size:12px;
+    letter-spacing:.1em; color:var(--ink-soft); padding:4px 8px; border-bottom:2px solid transparent;
+  }
+  .uitoggle button.active{ color:var(--red); border-bottom-color:var(--red); }
+  .uitoggle button:hover{ color:var(--ink); }
 
   /* ---- Desk layout ---- */
   .desk{ display:grid; grid-template-columns:1.15fr .85fr; gap:0; }
@@ -218,26 +224,29 @@ export function renderUiHtml(): string {
 <body>
 <div class="wrap">
   <header class="masthead">
-    <div class="kicker">No. 1 &middot; The Copyeditor's Desk</div>
-    <h1>The Readability <em>Review</em></h1>
-    <div class="sub">A standing verdict on the clarity, cadence &amp; candour of your prose</div>
+    <div class="kicker" id="k-kicker"></div>
+    <h1 id="k-title"></h1>
+    <div class="sub" id="k-sub"></div>
   </header>
   <div class="dateline">
     <span id="dl-date">&mdash;</span>
-    <span>Submitted for Editorial Assessment</span>
-    <span>Six Languages &middot; Seven Measures</span>
+    <span id="k-dlmid"></span>
+    <div class="uitoggle" id="uitoggle">
+      <button data-ui="en">EN</button>
+      <button data-ui="tr">TR</button>
+    </div>
   </div>
 
   <div class="desk">
     <section class="col-ms">
-      <p class="label">The Manuscript</p>
+      <p class="label" id="k-lblms"></p>
       <div class="ms-frame">
-        <textarea id="text" placeholder="Set your words here, and the desk will read them back to you&hellip;"></textarea>
+        <textarea id="text"></textarea>
       </div>
       <div class="controls">
-        <span class="stat"><b id="words">0</b> words</span>
-        <span class="stat"><b id="chars">0</b> chars</span>
-        <label class="stat" style="display:flex;gap:8px;align-items:center;">Tongue
+        <span class="stat"><b id="words">0</b> <span id="k-uwords"></span></span>
+        <span class="stat"><b id="chars">0</b> <span id="k-uchars"></span></span>
+        <label class="stat" style="display:flex;gap:8px;align-items:center;"><span id="k-tongue"></span>
           <select id="lang">
             <option value="auto">auto</option>
             <option value="en">English</option>
@@ -249,27 +258,25 @@ export function renderUiHtml(): string {
           </select>
         </label>
       </div>
-      <button class="submit" id="go">Submit for Review</button>
+      <button class="submit" id="go"></button>
     </section>
 
     <aside class="col-side">
-      <p class="label">The Verdict</p>
-      <div id="verdict">
-        <p class="placeholder">No manuscript has yet crossed the desk. Type your passage and submit it; the editor will return all seven measures in a single pass &mdash; readability, flow, search-fitness, and the unmistakable scent of a machine.</p>
-      </div>
+      <p class="label" id="k-lblverdict"></p>
+      <div id="verdict"></div>
     </aside>
   </div>
 
   <section id="clippings" class="clippings hidden">
-    <p class="label">The Detailed Marks</p>
+    <p class="label" id="k-lblclip"></p>
     <div class="clip-grid" id="clipGrid"></div>
 
     <div class="deep" id="deepPanel">
-      <p class="label">A Second Reading &mdash; By Machine Jury</p>
-      <p>Empanel a jury of language models to judge whether these words were written by a human. This reading costs money and takes a moment.</p>
+      <p class="label" id="k-lbldeep"></p>
+      <p id="k-deepintro"></p>
       <div class="row">
-        <button class="ghost" data-tier="cheap">Cheap Jury &middot; ~$0.01</button>
-        <button class="ghost" data-tier="premium">Premium Jury &middot; ~$0.07</button>
+        <button class="ghost" data-tier="cheap"></button>
+        <button class="ghost" data-tier="premium"></button>
         <span class="stat" id="deepStatus"></span>
       </div>
       <div id="deepResult"></div>
@@ -277,17 +284,110 @@ export function renderUiHtml(): string {
   </section>
 
   <details class="raw">
-    <summary>The Editor's Longhand &mdash; raw JSON</summary>
+    <summary id="k-rawsum"></summary>
     <pre id="raw">—</pre>
   </details>
 
-  <p class="footer-note" id="footnote">readability-mcp &middot; results are cached &mdash; unchanged prose is never re-read</p>
+  <p class="footer-note" id="footnote"></p>
 </div>
 
 <script>
 var $=function(s){return document.querySelector(s);};
 var textEl=$("#text"), verdict=$("#verdict"), raw=$("#raw"),
-    clippings=$("#clippings"), clipGrid=$("#clipGrid"), footnote=$("#footnote");
+    clippings=$("#clippings"), clipGrid=$("#clipGrid"), footnote=$("#footnote"), langSel=$("#lang");
+
+// ============ i18n ============
+var T={
+  en:{
+    kicker:"No. 1 &middot; The Copyeditor's Desk",
+    title:"The Readability <em>Review</em>",
+    sub:"A standing verdict on the clarity, cadence &amp; candour of your prose",
+    dlmid:"Submitted for Editorial Assessment",
+    lblms:"The Manuscript",
+    placeholderMs:"Set your words here, and the desk will read them back to you\\u2026",
+    uwords:"words", uchars:"chars", tongue:"Text language",
+    submit:"Submit for Review",
+    lblverdict:"The Verdict",
+    verdictEmpty:"No manuscript has yet crossed the desk. Type your passage and submit it; the editor will return all seven measures in a single pass \\u2014 readability, flow, search-fitness, and the unmistakable scent of a machine.",
+    lblclip:"The Detailed Marks",
+    lbldeep:"A Second Reading \\u2014 By Machine Jury",
+    deepintro:"Empanel a jury of language models to judge whether these words were written by a human. This reading costs money and takes a moment.",
+    cheap:"Cheap Jury \\u00b7 ~$0.01", premium:"Premium Jury \\u00b7 ~$0.07",
+    rawsum:"The Editor's Longhand \\u2014 raw JSON",
+    grades:{read:"Readability", flow:"Flow &amp; Cadence", seo:"Search Fitness", human:"Human Voice"},
+    notes:["exemplary","sound","serviceable","laboured","in want of revision"],
+    sealPass:"fit to publish", sealFail:"send back",
+    machine:"reads as machine", humanlike:"reads as human",
+    marksTitle:"The Editor's Marks", clean:"Clean copy. The desk found nothing to strike.",
+    decks:{read:"Formula scores, normalised. Higher reads easier.", flow:"Rhythm, lexical range &amp; the glue between clauses.", seo:"The flow measures behind the SEO verdict.", human:"Per-signal humanity. Higher = less machine-like."},
+    juryTitle:"Jury Consensus", composite:"Composite", heuristic:"Heuristic",
+    humanUnit:"/100 human", agreement:"agreement", cost:"cost",
+    footDefault:"readability-mcp &middot; results are cached \\u2014 unchanged prose is never re-read",
+    footCached:'Drawn from the cache <span class="cachetag">&mdash; this prose was already on file</span>',
+    errWords:"The desk needs words before it can render a verdict.",
+    busy:"Reading\\u2026", reading:"The editor is reading\\u2026", unreachable:"The desk could not be reached: ",
+    deepNoMs:"No manuscript on the desk.", deliberating:"The jury is deliberating\\u2026", fromCache:"(from cache)"
+  },
+  tr:{
+    kicker:"Say\\u0131 1 &middot; Redaksiyon Masas\\u0131",
+    title:"Okunabilirlik <em>Rev\\u00fcs\\u00fc</em>",
+    sub:"D\\u00fczyaz\\u0131n\\u0131z\\u0131n berrakl\\u0131\\u011f\\u0131, ritmi ve samimiyeti \\u00fczerine bir karar",
+    dlmid:"Edit\\u00f6ryal De\\u011ferlendirmeye Sunulur",
+    lblms:"M\\u00fcsvedde",
+    placeholderMs:"S\\u00f6zc\\u00fcklerinizi buraya b\\u0131rak\\u0131n; masa onlar\\u0131 size geri okusun\\u2026",
+    uwords:"kelime", uchars:"karakter", tongue:"Metin dili",
+    submit:"\\u0130ncelemeye G\\u00f6nder",
+    lblverdict:"Karar",
+    verdictEmpty:"Hen\\u00fcz masaya bir m\\u00fcsvedde gelmedi. Metninizi yaz\\u0131p g\\u00f6nderin; edit\\u00f6r yedi \\u00f6l\\u00e7\\u00fct\\u00fc tek seferde d\\u00f6nd\\u00fcrs\\u00fcn \\u2014 okunabilirlik, ak\\u0131\\u015f, arama uyumu ve makinenin o belli belirsiz kokusu.",
+    lblclip:"Ayr\\u0131nt\\u0131l\\u0131 Notlar",
+    lbldeep:"\\u0130kinci Okuma \\u2014 Makine J\\u00fcrisi",
+    deepintro:"Bu s\\u00f6zc\\u00fcklerin bir insan taraf\\u0131ndan yaz\\u0131l\\u0131p yaz\\u0131lmad\\u0131\\u011f\\u0131na karar vermesi i\\u00e7in bir dil modeli j\\u00fcrisi toplay\\u0131n. Bu okuma \\u00fccretlidir ve biraz zaman al\\u0131r.",
+    cheap:"Ekonomik J\\u00fcri \\u00b7 ~$0.01", premium:"Premium J\\u00fcri \\u00b7 ~$0.07",
+    rawsum:"Edit\\u00f6r\\u00fcn El Yaz\\u0131s\\u0131 \\u2014 ham JSON",
+    grades:{read:"Okunabilirlik", flow:"Ak\\u0131\\u015f ve Ritim", seo:"Arama Uyumu", human:"\\u0130nsan Sesi"},
+    notes:["kusursuz","sa\\u011flam","idare eder","zorlama","elden ge\\u00e7meli"],
+    sealPass:"yay\\u0131na uygun", sealFail:"geri g\\u00f6nder",
+    machine:"makine gibi", humanlike:"insan gibi",
+    marksTitle:"Edit\\u00f6r\\u00fcn Notlar\\u0131", clean:"Temiz metin. Masa silecek bir \\u015fey bulamad\\u0131.",
+    decks:{read:"Form\\u00fcl skorlar\\u0131, normalize. Y\\u00fcksek = daha kolay okunur.", flow:"Ritim, s\\u00f6zc\\u00fck \\u00e7e\\u015fitlili\\u011fi ve c\\u00fcmleler aras\\u0131 ba\\u011f.", seo:"SEO karar\\u0131n\\u0131n arkas\\u0131ndaki ak\\u0131\\u015f \\u00f6l\\u00e7\\u00fctleri.", human:"Sinyal ba\\u015f\\u0131na insanl\\u0131k. Y\\u00fcksek = daha az makine."},
+    juryTitle:"J\\u00fcri Mutabakat\\u0131", composite:"Bile\\u015fik", heuristic:"Sezgisel",
+    humanUnit:"/100 insan", agreement:"uzla\\u015f\\u0131", cost:"maliyet",
+    footDefault:"readability-mcp &middot; sonu\\u00e7lar \\u00f6nbelle\\u011fe al\\u0131n\\u0131r \\u2014 de\\u011fi\\u015fmeyen metin tekrar okunmaz",
+    footCached:'\\u00d6nbellekten al\\u0131nd\\u0131 <span class="cachetag">&mdash; bu metin zaten dosyada</span>',
+    errWords:"Karar vermesi i\\u00e7in masaya \\u00f6nce s\\u00f6zc\\u00fck laz\\u0131m.",
+    busy:"Okunuyor\\u2026", reading:"Edit\\u00f6r okuyor\\u2026", unreachable:"Masaya ula\\u015f\\u0131lamad\\u0131: ",
+    deepNoMs:"Masada m\\u00fcsvedde yok.", deliberating:"J\\u00fcri m\\u00fczakere ediyor\\u2026", fromCache:"(\\u00f6nbellekten)"
+  }
+};
+var ui = (navigator.language||"en").toLowerCase().indexOf("tr")===0 ? "tr" : "en";
+function t(){ return T[ui]; }
+
+function applyI18n(){
+  var x=t();
+  document.documentElement.lang = ui;
+  $("#k-kicker").innerHTML=x.kicker;
+  $("#k-title").innerHTML=x.title;
+  $("#k-sub").innerHTML=x.sub;
+  $("#k-dlmid").textContent=x.dlmid;
+  $("#k-lblms").textContent=x.lblms;
+  textEl.placeholder=x.placeholderMs;
+  $("#k-uwords").textContent=x.uwords;
+  $("#k-uchars").textContent=x.uchars;
+  $("#k-tongue").textContent=x.tongue;
+  $("#go").textContent=x.submit;
+  $("#k-lblverdict").textContent=x.lblverdict;
+  $("#k-lblclip").textContent=x.lblclip;
+  $("#k-lbldeep").textContent=x.lbldeep;
+  $("#k-deepintro").textContent=x.deepintro;
+  document.querySelector('.ghost[data-tier="cheap"]').innerHTML=x.cheap;
+  document.querySelector('.ghost[data-tier="premium"]').innerHTML=x.premium;
+  $("#k-rawsum").textContent=x.rawsum;
+  document.querySelectorAll("#uitoggle button").forEach(function(b){ b.classList.toggle("active", b.dataset.ui===ui); });
+  if(!window.__lastAll){ verdict.innerHTML='<p class="placeholder">'+x.verdictEmpty+'</p>'; }
+  else { renderAll(window.__lastAll); }
+  if(window.__lastDeep){ renderDeep(window.__lastDeep); }
+  setFootnote(window.__lastCached);
+}
 
 // ---- date line ----
 (function(){
@@ -298,27 +398,24 @@ var textEl=$("#text"), verdict=$("#verdict"), raw=$("#raw"),
 
 // ---- live counts ----
 function counts(){
-  var t=textEl.value;
-  $("#chars").textContent=t.length;
-  $("#words").textContent=(t.trim().match(/\\S+/g)||[]).length;
+  var tx=textEl.value;
+  $("#chars").textContent=tx.length;
+  $("#words").textContent=(tx.trim().match(/\\S+/g)||[]).length;
 }
-textEl.addEventListener("input",counts); counts();
+textEl.addEventListener("input",counts);
 
 // ---- client-side cache: identical prose is never re-sent ----
 function hashKey(s){ var h=5381,i=s.length; while(i) h=(h*33)^s.charCodeAt(--i); return (h>>>0).toString(36); }
-var clientCache={};      // key -> response data
-var lastKey=null;
-
+var clientCache={};
 function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); }
 function clr(v){ return v>=70?"var(--good)":v>=45?"var(--mid)":"var(--bad)"; }
-function note(v,inv){ var x=inv?100-v:v; return x>=80?"exemplary":x>=65?"sound":x>=45?"serviceable":x>=25?"laboured":"in want of revision"; }
+function noteFor(v,inv){ var x=inv?100-v:v; var n=t().notes; return x>=80?n[0]:x>=65?n[1]:x>=45?n[2]:x>=25?n[3]:n[4]; }
 
-function grade(name,val,inv,extra){
-  var shown = Math.round(val);
-  var color = clr(inv?100-val:val);
+function grade(name,val,extra){
+  var color = clr(val);
   return '<div class="grade"><div class="gname">'+name+'</div>'+
-    '<div class="gnum" style="color:'+color+'">'+shown+'<small>/100</small></div>'+
-    '<div class="gnote">'+note(val,inv)+'</div>'+(extra||'')+'</div>';
+    '<div class="gnum" style="color:'+color+'">'+Math.round(val)+'<small>/100</small></div>'+
+    '<div class="gnote">'+noteFor(val)+'</div>'+(extra||'')+'</div>';
 }
 
 function bars(title,deck,obj){
@@ -333,67 +430,65 @@ function bars(title,deck,obj){
 }
 
 function renderAll(d){
+  var x=t();
   if(d.error){ verdict.innerHTML='<p class="err">'+esc(d.error)+'</p>'; clippings.classList.add("hidden"); return; }
   var r=d.readability, f=d.flow, s=d.seo, ai=d.ai;
   var human = 100 - (ai.composite_score||0);
 
-  var seal = (typeof s.passed==="boolean") ? '<div class="seal '+(s.passed?'pass':'fail')+'">'+(s.passed?'fit to publish':'send back')+'</div>' : '';
+  var seal = (typeof s.passed==="boolean") ? '<div class="seal '+(s.passed?'pass':'fail')+'">'+(s.passed?x.sealPass:x.sealFail)+'</div>' : '';
+  var humanNote = '<div class="gnote">'+(human<50?x.machine:x.humanlike)+'</div>';
 
   var html='<div class="grades">'+
-    grade("Readability", r.overall_100||0, false)+
-    grade("Flow &amp; Cadence", f.overall_100||0, false)+
-    grade("Search Fitness", s.overall_100||0, false, seal)+
-    grade("Human Voice", human, false, '<div class="gnote">'+(100-human>=50?'reads as machine':'reads as human')+'</div>')+
+    grade(x.grades.read, r.overall_100||0)+
+    grade(x.grades.flow, f.overall_100||0)+
+    grade(x.grades.seo, s.overall_100||0, seal)+
+    grade(x.grades.human, human, humanNote)+
     '</div>';
 
   if(s.verdict) html+='<p class="verdict-line">&ldquo;'+esc(s.verdict)+'&rdquo;</p>';
 
-  // Editor's marks = combined suggestions + ai advice
   var marks=[].concat(s.suggestions||[], ai.summary_advice||[]);
-  html+='<div class="marks"><h3>The Editor\\'s Marks</h3>';
+  html+='<div class="marks"><h3>'+x.marksTitle+'</h3>';
   if(marks.length){ html+='<ul>'+marks.map(function(m){return '<li>'+esc(m)+'</li>';}).join("")+'</ul>'; }
-  else { html+='<p class="clean">Clean copy. The desk found nothing to strike.</p>'; }
+  else { html+='<p class="clean">'+x.clean+'</p>'; }
   html+='</div>';
-
   verdict.innerHTML=html;
 
-  // Clippings
   var sigScores={};
   if(ai.signals) Object.keys(ai.signals).forEach(function(k){ var v=ai.signals[k]; if(v&&typeof v.score==="number") sigScores[k]=100-v.score; });
   clipGrid.innerHTML =
-    bars("Readability","Formula scores, normalised. Higher reads easier.",r.metrics_100)+
-    bars("Flow","Rhythm, lexical range &amp; the glue between clauses.",f.metrics_100)+
-    bars("Search Fitness","The flow measures behind the SEO verdict.",(s.breakdown&&s.breakdown.flow_metrics))+
-    bars("Human Voice","Per-signal humanity. Higher = less machine-like.",sigScores);
+    bars(x.grades.read,x.decks.read,r.metrics_100)+
+    bars(x.grades.flow,x.decks.flow,f.metrics_100)+
+    bars(x.grades.seo,x.decks.seo,(s.breakdown&&s.breakdown.flow_metrics))+
+    bars(x.grades.human,x.decks.human,sigScores);
   clippings.classList.remove("hidden");
 }
 
 function setFootnote(cached){
-  footnote.innerHTML = cached
-    ? 'Drawn from the cache <span class="cachetag">&mdash; this prose was already on file</span>'
-    : 'readability-mcp &middot; results are cached &mdash; unchanged prose is never re-read';
+  window.__lastCached=cached;
+  footnote.innerHTML = cached ? t().footCached : t().footDefault;
 }
 
 async function review(){
+  var x=t();
   var text=textEl.value.trim();
-  if(!text){ verdict.innerHTML='<p class="err">The desk needs words before it can render a verdict.</p>'; return; }
-  var lang=$("#lang").value;
+  if(!text){ verdict.innerHTML='<p class="err">'+x.errWords+'</p>'; return; }
+  var lang=langSel.value;
   var key=lang+"|"+hashKey(text);
-  lastKey=key;
 
-  if(clientCache[key]){ renderAll(clientCache[key]); raw.textContent=JSON.stringify(clientCache[key],null,2); setFootnote(true); return; }
+  if(clientCache[key]){ window.__lastAll=clientCache[key]; renderAll(clientCache[key]); raw.textContent=JSON.stringify(clientCache[key],null,2); setFootnote(true); return; }
 
-  var btn=$("#go"); btn.disabled=true; var old=btn.textContent; btn.textContent="Reading\\u2026";
-  verdict.innerHTML='<p class="placeholder" style="float:none">The editor is reading&hellip;</p>';
+  var btn=$("#go"); btn.disabled=true; btn.textContent=x.busy;
+  verdict.innerHTML='<p class="placeholder" style="float:none">'+x.reading+'</p>';
   try{
     var res=await fetch("/api/all",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:text,language:lang})});
     var d=await res.json();
-    clientCache[key]=d;
+    clientCache[key]=d; window.__lastAll=d;
     raw.textContent=JSON.stringify(d,null,2);
     renderAll(d);
     setFootnote(res.headers.get("x-cache")==="HIT"||d._cached);
-  }catch(e){ verdict.innerHTML='<p class="err">The desk could not be reached: '+esc(e.message)+'</p>'; }
-  finally{ btn.disabled=false; btn.textContent=old; }
+  }catch(e){ verdict.innerHTML='<p class="err">'+x.unreachable+esc(e.message)+'</p>'; }
+  finally{ btn.disabled=false; btn.textContent=x.submit; }
 }
 $("#go").addEventListener("click",review);
 textEl.addEventListener("keydown",function(e){ if((e.metaKey||e.ctrlKey)&&e.key==="Enter") review(); });
@@ -401,37 +496,54 @@ textEl.addEventListener("keydown",function(e){ if((e.metaKey||e.ctrlKey)&&e.key=
 // ---- deep AI jury ----
 var deepCache={};
 async function deep(tier){
+  var x=t();
   var text=textEl.value.trim();
-  if(!text){ $("#deepStatus").textContent="No manuscript on the desk."; return; }
-  var lang=$("#lang").value, key=tier+"|"+lang+"|"+hashKey(text);
+  if(!text){ $("#deepStatus").textContent=x.deepNoMs; return; }
+  var lang=langSel.value, key=tier+"|"+lang+"|"+hashKey(text);
   var status=$("#deepStatus"), out=$("#deepResult");
-  if(deepCache[key]){ renderDeep(deepCache[key]); status.textContent="(from cache)"; return; }
+  if(deepCache[key]){ window.__lastDeep=deepCache[key]; renderDeep(deepCache[key]); status.textContent=x.fromCache; return; }
   document.querySelectorAll(".deep .ghost").forEach(function(b){b.disabled=true;});
-  status.textContent="The jury is deliberating\\u2026";
+  status.textContent=x.deliberating;
   try{
     var res=await fetch("/api/ai",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:text,language:lang,tier:tier})});
     var d=await res.json();
     if(d.error){ status.textContent=""; out.innerHTML='<p class="err">'+esc(d.error)+'</p>'; return; }
-    deepCache[key]=d; status.textContent=(res.headers.get("x-cache")==="HIT")?"(from cache)":"";
+    deepCache[key]=d; window.__lastDeep=d; status.textContent=(res.headers.get("x-cache")==="HIT")?x.fromCache:"";
     renderDeep(d);
   }catch(e){ status.textContent=""; out.innerHTML='<p class="err">'+esc(e.message)+'</p>'; }
   finally{ document.querySelectorAll(".deep .ghost").forEach(function(b){b.disabled=false;}); }
 }
 function renderDeep(d){
+  var x=t();
   var human=100-(d.composite_score||0);
-  var cost=(typeof d.total_cost_usd==="number")?(' &middot; cost $'+d.total_cost_usd.toFixed(4)):'';
+  var cost=(typeof d.total_cost_usd==="number")?(' &middot; '+x.cost+' $'+d.total_cost_usd.toFixed(4)):'';
   var panel=d.signals&&d.signals.llm_panel;
-  var agree=panel?(' &middot; agreement: '+esc(panel.agreement||"?")):'';
+  var agree=panel?(' &middot; '+x.agreement+': '+esc(panel.agreement||"?")):'';
   var html='<div class="grades" style="margin-top:16px"><div class="grade" style="border-right:1px solid var(--hair)">'+
-    '<div class="gname">Composite</div><div class="gnum" style="color:'+clr(human)+'">'+Math.round(human)+'<small>/100 human</small></div>'+
+    '<div class="gname">'+x.composite+'</div><div class="gnum" style="color:'+clr(human)+'">'+Math.round(human)+'<small>'+x.humanUnit+'</small></div>'+
     '<div class="gnote">'+esc(d.verdict||"")+cost+agree+'</div></div>'+
-    '<div class="grade"><div class="gname">Heuristic</div><div class="gnum">'+Math.round(100-(d.heuristic_score||0))+'<small>/100</small></div></div></div>';
+    '<div class="grade"><div class="gname">'+x.heuristic+'</div><div class="gnum">'+Math.round(100-(d.heuristic_score||0))+'<small>/100</small></div></div></div>';
   if(panel&&panel.consensus_reasons&&panel.consensus_reasons.length){
-    html+='<div class="marks"><h3>Jury Consensus</h3><ul>'+panel.consensus_reasons.map(function(c){return '<li>'+esc(typeof c==="string"?c:(c.reason||JSON.stringify(c)))+'</li>';}).join("")+'</ul></div>';
+    html+='<div class="marks"><h3>'+x.juryTitle+'</h3><ul>'+panel.consensus_reasons.map(function(c){return '<li>'+esc(typeof c==="string"?c:(c.reason||JSON.stringify(c)))+'</li>';}).join("")+'</ul></div>';
   }
   $("#deepResult").innerHTML=html;
 }
 document.querySelectorAll(".deep .ghost").forEach(function(b){ b.addEventListener("click",function(){deep(b.dataset.tier);}); });
+
+// ---- UI language toggle: switches chrome AND re-fetches output in that language ----
+document.querySelectorAll("#uitoggle button").forEach(function(b){
+  b.addEventListener("click",function(){
+    if(ui===b.dataset.ui) return;
+    ui=b.dataset.ui;
+    langSel.value=ui;                 // keep analysis language in step with the UI
+    applyI18n();
+    if(window.__lastAll) review();    // re-read so backend verdict/advice switch language too
+  });
+});
+
+// ---- boot ----
+counts();
+applyI18n();
 </script>
 </body>
 </html>`;

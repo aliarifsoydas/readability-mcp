@@ -130,11 +130,15 @@ export function renderUiHtml(): string {
   .label{ font-family:var(--mono); font-size:11px; letter-spacing:.24em; text-transform:uppercase; color:var(--red); margin:0 0 10px; }
 
   textarea{
-    width:100%; min-height:340px; resize:vertical; background:transparent; color:var(--ink);
-    border:none; outline:none; padding:6px 2px; font-family:var(--serif); font-size:19px; line-height:1.72;
+    width:100%; min-height:360px; resize:vertical; background:#ffffff; color:#1a1712;
+    border:1px solid var(--hair); outline:none; padding:22px 24px;
+    font-family:var(--serif); font-size:19px; line-height:1.72;
+    box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 3px 4px 14px rgba(40,30,12,.12);
+    transition:box-shadow .18s, border-color .18s;
   }
+  textarea:focus{ border-color:var(--ink); box-shadow:0 0 0 1px var(--ink), 3px 6px 18px rgba(40,30,12,.16); }
   textarea::placeholder{ color:#9c8f72; font-style:italic; }
-  .ms-frame{ border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:14px 0; }
+  .ms-frame{ padding:4px 0; }
 
   .controls{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-top:18px; }
   .stat{ font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--ink-soft); text-transform:uppercase; }

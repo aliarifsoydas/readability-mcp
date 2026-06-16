@@ -145,18 +145,20 @@ export function renderUiHtml(): string {
   .stat b{ color:var(--ink); font-size:15px; }
   select{
     appearance:none; background:transparent; border:none; border-bottom:1.5px solid var(--ink);
-    font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink);
-    padding:4px 22px 4px 2px; cursor:pointer;
+    font-family:var(--mono); font-size:14px; letter-spacing:.02em; color:var(--ink);
+    padding:4px 24px 4px 2px; cursor:pointer;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23211c14'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 2px center;
   }
   .submit{
     margin-top:26px; width:100%; background:var(--ink); color:var(--paper); border:none; cursor:pointer;
-    font-family:var(--mono); font-size:13px; letter-spacing:.28em; text-transform:uppercase; padding:16px;
-    transition:background .18s;
+    font-family:var(--display); font-weight:600; font-size:20px; letter-spacing:.01em; padding:16px;
+    display:flex; align-items:center; justify-content:center; gap:10px; transition:background .18s;
   }
+  .submit::after{ content:"\\2192"; font-size:22px; }
   .submit:hover{ background:var(--red); }
   .submit:disabled{ opacity:.45; cursor:wait; }
+  .submit:disabled::after{ content:""; }
 
   /* ---- Verdict / scorecard ---- */
   .placeholder{ font-style:italic; color:var(--ink-soft); font-size:19px; }
@@ -202,7 +204,7 @@ export function renderUiHtml(): string {
   .deep .label{ margin-bottom:6px; }
   .deep p{ margin:0 0 14px; font-size:15px; font-style:italic; color:var(--ink-soft); }
   .deep .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .ghost{ background:transparent; border:1.5px solid var(--ink); color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; padding:9px 14px; cursor:pointer; transition:.15s; }
+  .ghost{ background:#fff; border:1.5px solid var(--ink); color:var(--ink); font-family:var(--mono); font-size:14px; letter-spacing:.01em; padding:11px 18px; cursor:pointer; transition:.15s; }
   .ghost:hover{ background:var(--ink); color:var(--paper); }
   .ghost:disabled{ opacity:.4; cursor:default; }
 

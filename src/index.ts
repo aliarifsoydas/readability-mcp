@@ -255,13 +255,46 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
   }
 }
 
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data, null, 2), {
+const json = (data: unknown, status = 200, cached = false) =>
+  new Response(JSON.stringify(cached && data && typeof data === "object" ? { ...data, _cached: true } : data, null, 2), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "x-cache": cached ? "HIT" : "MISS",
+    },
   });
 
-/** Plain-HTTP handlers for the web UI, mirroring the MCP tools. */
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Server-side result cache. Identical (tool, text, language, options) inputs
+ * return the stored result without recomputation — and, crucially, without
+ * re-spending money on the LLM panel. Backed by the Cloudflare Cache API so it
+ * survives across requests/isolates. Degrades to direct compute if unavailable.
+ */
+async function withCache<T>(keyParts: string[], compute: () => Promise<T> | T): Promise<{ data: T; cached: boolean }> {
+  const cache = (globalThis as { caches?: CacheStorage }).caches?.default;
+  if (!cache) return { data: await compute(), cached: false };
+
+  const hash = await sha256Hex(keyParts.join(" "));
+  const key = new Request(`https://readability.cache/v1/${hash}`);
+  const hit = await cache.match(key);
+  if (hit) return { data: (await hit.json()) as T, cached: true };
+
+  const data = await compute();
+  await cache.put(
+    key,
+    new Response(JSON.stringify(data), {
+      headers: { "content-type": "application/json", "cache-control": "max-age=604800" },
+    }),
+  );
+  return { data, cached: false };
+}
+
+/** Plain-HTTP handlers for the web UI, mirroring the MCP tools (with caching). */
 async function handleApi(tool: string, request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   const body = await readBody(request);
@@ -269,35 +302,56 @@ async function handleApi(tool: string, request: Request, env: Env): Promise<Resp
   const language = (typeof body.language === "string" ? body.language : "auto") as
     | (typeof SUPPORTED_LANGUAGES)[number]
     | "auto";
-  if (tool !== "ai" && !text) return json({ error: "Field 'text' is required." }, 400);
+  if (!text) return json({ error: "Field 'text' is required." }, 400);
+
+  const formula = typeof body.formula === "string" ? (body.formula as Formula) : undefined;
+  const threshold = typeof body.threshold === "number" ? body.threshold : undefined;
+  const weightReadability = typeof body.weight_readability === "number" ? body.weight_readability : undefined;
 
   try {
     switch (tool) {
-      case "score":
-        return json(scoreText(text, language));
-      case "flow":
-        return json(flowScore(text, language));
-      case "seo":
-        return json(
-          seoScore(text, {
-            formula: typeof body.formula === "string" ? (body.formula as Formula) : undefined,
-            language,
-            threshold: typeof body.threshold === "number" ? body.threshold : undefined,
-            weight_readability:
-              typeof body.weight_readability === "number" ? body.weight_readability : undefined,
-          }),
+      case "score": {
+        const { data, cached } = await withCache(["score", language, text], () => scoreText(text, language));
+        return json(data, 200, cached);
+      }
+      case "flow": {
+        const { data, cached } = await withCache(["flow", language, text], () => flowScore(text, language));
+        return json(data, 200, cached);
+      }
+      case "seo": {
+        const { data, cached } = await withCache(
+          ["seo", language, formula ?? "", String(threshold ?? ""), String(weightReadability ?? ""), text],
+          () => seoScore(text, { formula, language, threshold, weight_readability: weightReadability }),
         );
+        return json(data, 200, cached);
+      }
       case "ai": {
-        if (!text) return json({ error: "Field 'text' is required." }, 400);
         const tier = body.tier === "cheap" || body.tier === "premium" ? (body.tier as PanelTier) : undefined;
         const apiKey = env.OPENROUTER_API_KEY;
         if (tier && !apiKey)
           return json({ error: "LLM tiers require OPENROUTER_API_KEY to be configured." }, 400);
-        const result = await aiDetectScore(text, {
-          language,
-          llm: tier && apiKey ? { apiKey, tier, weight: typeof body.llm_weight === "number" ? body.llm_weight : undefined } : undefined,
-        });
-        return json(result);
+        const llmWeight = typeof body.llm_weight === "number" ? body.llm_weight : undefined;
+        const { data, cached } = await withCache(["ai", language, tier ?? "heuristic", String(llmWeight ?? ""), text], () =>
+          aiDetectScore(text, {
+            language,
+            llm: tier && apiKey ? { apiKey, tier, weight: llmWeight } : undefined,
+          }),
+        );
+        return json(data, 200, cached);
+      }
+      case "all": {
+        // One round trip → every free/deterministic score at once.
+        const { data, cached } = await withCache(
+          ["all", language, formula ?? "", String(threshold ?? ""), String(weightReadability ?? ""), text],
+          async () => ({
+            language: detectLanguage(text),
+            readability: scoreText(text, language),
+            flow: flowScore(text, language),
+            seo: seoScore(text, { formula, language, threshold, weight_readability: weightReadability }),
+            ai: await aiDetectScore(text, { language }),
+          }),
+        );
+        return json(data, 200, cached);
       }
       default:
         return json({ error: "Unknown tool." }, 404);

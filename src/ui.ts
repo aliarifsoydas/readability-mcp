@@ -1,4 +1,4 @@
-// Lightweight web UI + Basic Auth gate for the readability tools.
+// Web UI + Basic Auth gate for the readability tools.
 // Reuses the same scoring functions the MCP tools expose, served over plain
 // JSON endpoints so a browser can drive them directly.
 
@@ -19,9 +19,7 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export type AuthResult =
-  | { ok: true }
-  | { ok: false; response: Response };
+export type AuthResult = { ok: true } | { ok: false; response: Response };
 
 const UNAUTH = () =>
   new Response("Authentication required.", {
@@ -76,189 +74,358 @@ export function renderUiHtml(): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Readability Studio</title>
+<title>The Readability Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0f1115; --panel: #181b22; --panel2: #1f232c; --border: #2a2f3a;
-    --txt: #e7e9ee; --muted: #9aa3b2; --accent: #6ea8fe; --accent2: #54d6a4;
-    --warn: #f0b34a; --bad: #f0726a; --good: #54d6a4;
+  :root{
+    --paper:#f1e9d9; --paper2:#e9dfca; --ink:#211c14; --ink-soft:#5a5142;
+    --rule:#221d15; --hair:#cbbfa3; --red:#a8261b; --red-soft:#c4493c;
+    --good:#3f5e3a; --mid:#9a6f1c; --bad:#a8261b;
+    --serif:"Newsreader",Georgia,serif;
+    --display:"Fraunces","Times New Roman",serif;
+    --mono:"Courier Prime","Courier New",monospace;
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--txt);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  *{box-sizing:border-box;}
+  html{-webkit-font-smoothing:antialiased;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--serif); font-size:18px; line-height:1.6;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,.35), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(120,90,40,.07), transparent 45%);
   }
-  header {
-    padding: 18px 24px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: baseline; gap: 12px;
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:9999; opacity:.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  header h1 { font-size: 18px; margin: 0; font-weight: 650; }
-  header span { color: var(--muted); font-size: 13px; }
-  main { max-width: 1080px; margin: 0 auto; padding: 24px; display: grid; gap: 18px; grid-template-columns: 1fr 1fr; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
-  .card.full { grid-column: 1 / -1; }
-  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
-  textarea {
-    width: 100%; min-height: 220px; resize: vertical; background: var(--panel2);
-    color: var(--txt); border: 1px solid var(--border); border-radius: 8px;
-    padding: 12px; font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px 80px;}
+
+  /* ---- Masthead ---- */
+  .masthead{ text-align:center; padding:36px 0 14px; border-bottom:3px double var(--rule); }
+  .masthead .kicker{ font-family:var(--mono); font-size:11px; letter-spacing:.42em; text-transform:uppercase; color:var(--ink-soft); }
+  .masthead h1{
+    font-family:var(--display); font-weight:600; font-size:clamp(40px,7vw,86px);
+    line-height:.94; margin:8px 0 6px; letter-spacing:-.02em; font-optical-sizing:auto;
   }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
-  select, button {
-    background: var(--panel2); color: var(--txt); border: 1px solid var(--border);
-    border-radius: 8px; padding: 9px 14px; font-size: 14px; cursor: pointer;
+  .masthead h1 em{ font-style:italic; color:var(--red); }
+  .masthead .sub{ font-style:italic; font-size:17px; color:var(--ink-soft); }
+  .dateline{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink-soft); padding:8px 2px; border-bottom:1px solid var(--rule); margin-bottom:30px;
   }
-  button.primary { background: var(--accent); color: #07101f; border-color: var(--accent); font-weight: 600; }
-  button:hover { border-color: var(--accent); }
-  button:disabled { opacity: .5; cursor: default; }
-  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-  .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
-  .score-big { font-size: 44px; font-weight: 700; line-height: 1; }
-  .score-sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
-  .verdict { margin: 14px 0 4px; padding: 10px 12px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--border); }
-  .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }
-  .pill.pass { background: rgba(84,214,164,.15); color: var(--good); }
-  .pill.fail { background: rgba(240,114,106,.15); color: var(--bad); }
-  ul.advice { margin: 10px 0 0; padding-left: 18px; }
-  ul.advice li { margin: 4px 0; }
-  .bars { margin-top: 14px; display: grid; gap: 8px; }
-  .bar { display: grid; grid-template-columns: 160px 1fr 44px; gap: 10px; align-items: center; font-size: 13px; }
-  .bar .track { height: 8px; background: var(--panel2); border-radius: 99px; overflow: hidden; }
-  .bar .fill { height: 100%; background: var(--accent2); }
-  .bar .lbl { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  details { margin-top: 14px; }
-  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-  pre { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow: auto; font-size: 12px; max-height: 360px; }
-  .empty { color: var(--muted); font-size: 14px; }
-  .err { color: var(--bad); }
+  .dateline span:nth-child(2){ letter-spacing:.05em; }
+
+  /* ---- Desk layout ---- */
+  .desk{ display:grid; grid-template-columns:1.15fr .85fr; gap:0; }
+  @media (max-width:880px){ .desk{ grid-template-columns:1fr; } }
+  .col-ms{ padding-right:34px; border-right:1px solid var(--hair); }
+  .col-side{ padding-left:34px; }
+  @media (max-width:880px){
+    .col-ms{ border-right:none; padding-right:0; border-bottom:1px solid var(--hair); padding-bottom:28px; }
+    .col-side{ padding-left:0; padding-top:28px; }
+  }
+  .label{ font-family:var(--mono); font-size:11px; letter-spacing:.24em; text-transform:uppercase; color:var(--red); margin:0 0 10px; }
+
+  textarea{
+    width:100%; min-height:340px; resize:vertical; background:transparent; color:var(--ink);
+    border:none; outline:none; padding:6px 2px; font-family:var(--serif); font-size:19px; line-height:1.72;
+  }
+  textarea::placeholder{ color:#9c8f72; font-style:italic; }
+  .ms-frame{ border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:14px 0; }
+
+  .controls{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-top:18px; }
+  .stat{ font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--ink-soft); text-transform:uppercase; }
+  .stat b{ color:var(--ink); font-size:15px; }
+  select{
+    appearance:none; background:transparent; border:none; border-bottom:1.5px solid var(--ink);
+    font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink);
+    padding:4px 22px 4px 2px; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23211c14'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 2px center;
+  }
+  .submit{
+    margin-top:26px; width:100%; background:var(--ink); color:var(--paper); border:none; cursor:pointer;
+    font-family:var(--mono); font-size:13px; letter-spacing:.28em; text-transform:uppercase; padding:16px;
+    transition:background .18s;
+  }
+  .submit:hover{ background:var(--red); }
+  .submit:disabled{ opacity:.45; cursor:wait; }
+
+  /* ---- Verdict / scorecard ---- */
+  .placeholder{ font-style:italic; color:var(--ink-soft); font-size:19px; }
+  .placeholder::first-letter{ font-family:var(--display); font-size:58px; float:left; line-height:.7; padding:6px 10px 0 0; color:var(--red); font-style:normal; }
+
+  .grades{ display:grid; grid-template-columns:1fr 1fr; gap:0; border-top:1px solid var(--rule); }
+  .grade{ padding:18px 16px; border-bottom:1px solid var(--hair); }
+  .grade:nth-child(odd){ border-right:1px solid var(--hair); }
+  .grade .gname{ font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-soft); }
+  .grade .gnum{ font-family:var(--display); font-weight:500; font-size:54px; line-height:1; letter-spacing:-.02em; font-optical-sizing:auto; }
+  .grade .gnum small{ font-size:20px; color:var(--ink-soft); font-weight:400; }
+  .grade .gnote{ font-style:italic; font-size:13px; color:var(--ink-soft); margin-top:2px; }
+  .seal{ display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; padding:3px 9px; border:1.5px solid currentColor; border-radius:2px; margin-top:6px; }
+  .seal.pass{ color:var(--good); } .seal.fail{ color:var(--red); }
+
+  .verdict-line{ font-family:var(--display); font-style:italic; font-weight:400; font-size:24px; margin:22px 0 4px; line-height:1.3; }
+
+  /* ---- Editor's marks (suggestions) ---- */
+  .marks{ margin-top:18px; border-top:3px double var(--rule); padding-top:14px; }
+  .marks h3{ font-family:var(--mono); font-size:11px; letter-spacing:.24em; text-transform:uppercase; color:var(--red); margin:0 0 10px; }
+  .marks ul{ list-style:none; margin:0; padding:0; }
+  .marks li{ position:relative; padding:6px 0 6px 26px; font-style:italic; border-bottom:1px dotted var(--hair); }
+  .marks li::before{ content:"\\270E"; position:absolute; left:0; top:6px; color:var(--red); font-style:normal; font-size:16px; }
+  .marks .clean{ font-style:italic; color:var(--good); padding-left:0; }
+
+  /* ---- Detail clippings ---- */
+  .clippings{ margin-top:46px; border-top:3px double var(--rule); padding-top:8px; }
+  .clip-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:34px; margin-top:22px; }
+  @media (max-width:680px){ .clip-grid{ grid-template-columns:1fr; } }
+  .clip h4{ font-family:var(--display); font-weight:600; font-size:22px; margin:0 0 4px; }
+  .clip .deck{ font-style:italic; color:var(--ink-soft); font-size:14px; margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid var(--hair); }
+  .bar{ display:grid; grid-template-columns:1fr auto; gap:8px 12px; align-items:baseline; padding:7px 0; border-bottom:1px dotted var(--hair); }
+  .bar .bn{ font-size:15px; }
+  .bar .bv{ font-family:var(--mono); font-size:14px; }
+  .bar .track{ grid-column:1/-1; height:3px; background:var(--paper2); position:relative; }
+  .bar .fill{ position:absolute; left:0; top:0; height:100%; }
+
+  .footer-note{ text-align:center; margin-top:54px; font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); }
+  .cachetag{ color:var(--good); }
+
+  /* ---- Deep review panel ---- */
+  .deep{ margin-top:30px; padding:20px; background:var(--paper2); border:1px solid var(--hair); }
+  .deep .label{ margin-bottom:6px; }
+  .deep p{ margin:0 0 14px; font-size:15px; font-style:italic; color:var(--ink-soft); }
+  .deep .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .ghost{ background:transparent; border:1.5px solid var(--ink); color:var(--ink); font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; padding:9px 14px; cursor:pointer; transition:.15s; }
+  .ghost:hover{ background:var(--ink); color:var(--paper); }
+  .ghost:disabled{ opacity:.4; cursor:default; }
+
+  details.raw{ margin-top:36px; border-top:1px solid var(--hair); padding-top:14px; }
+  details.raw summary{ font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft); cursor:pointer; }
+  details.raw pre{ font-family:var(--mono); font-size:12px; background:var(--paper2); padding:14px; overflow:auto; max-height:340px; margin-top:12px; border:1px solid var(--hair); }
+  .err{ color:var(--red); font-style:italic; }
+  .hidden{ display:none; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Readability Studio</h1>
-  <span>readability-mcp · paste text, get scores &amp; suggestions</span>
-</header>
-<main>
-  <section class="card">
-    <label for="text">Text</label>
-    <textarea id="text" placeholder="Paste the text you want to analyze…"></textarea>
-    <div class="row">
-      <label style="margin:0">Language</label>
-      <select id="lang">
-        <option value="auto">auto-detect</option>
-        <option value="en">English</option>
-        <option value="tr">Türkçe</option>
-        <option value="es">Español</option>
-        <option value="de">Deutsch</option>
-        <option value="fr">Français</option>
-        <option value="it">Italiano</option>
-      </select>
-      <span class="meta" id="charcount">0 chars</span>
-    </div>
-    <div class="btns">
-      <button class="primary" data-tool="seo">SEO score</button>
-      <button data-tool="score">Readability</button>
-      <button data-tool="flow">Flow</button>
-      <button data-tool="ai" data-tier="heuristic">AI-detect (free)</button>
-    </div>
-    <div class="row">
-      <label style="margin:0">AI LLM tier</label>
-      <select id="aitier">
-        <option value="cheap">cheap (~$0.01)</option>
-        <option value="premium">premium (~$0.07)</option>
-      </select>
-      <button data-tool="ai" data-tier="llm">AI-detect (LLM panel)</button>
+<div class="wrap">
+  <header class="masthead">
+    <div class="kicker">No. 1 &middot; The Copyeditor's Desk</div>
+    <h1>The Readability <em>Review</em></h1>
+    <div class="sub">A standing verdict on the clarity, cadence &amp; candour of your prose</div>
+  </header>
+  <div class="dateline">
+    <span id="dl-date">&mdash;</span>
+    <span>Submitted for Editorial Assessment</span>
+    <span>Six Languages &middot; Seven Measures</span>
+  </div>
+
+  <div class="desk">
+    <section class="col-ms">
+      <p class="label">The Manuscript</p>
+      <div class="ms-frame">
+        <textarea id="text" placeholder="Set your words here, and the desk will read them back to you&hellip;"></textarea>
+      </div>
+      <div class="controls">
+        <span class="stat"><b id="words">0</b> words</span>
+        <span class="stat"><b id="chars">0</b> chars</span>
+        <label class="stat" style="display:flex;gap:8px;align-items:center;">Tongue
+          <select id="lang">
+            <option value="auto">auto</option>
+            <option value="en">English</option>
+            <option value="tr">Türkçe</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+            <option value="it">Italiano</option>
+          </select>
+        </label>
+      </div>
+      <button class="submit" id="go">Submit for Review</button>
+    </section>
+
+    <aside class="col-side">
+      <p class="label">The Verdict</p>
+      <div id="verdict">
+        <p class="placeholder">No manuscript has yet crossed the desk. Type your passage and submit it; the editor will return all seven measures in a single pass &mdash; readability, flow, search-fitness, and the unmistakable scent of a machine.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section id="clippings" class="clippings hidden">
+    <p class="label">The Detailed Marks</p>
+    <div class="clip-grid" id="clipGrid"></div>
+
+    <div class="deep" id="deepPanel">
+      <p class="label">A Second Reading &mdash; By Machine Jury</p>
+      <p>Empanel a jury of language models to judge whether these words were written by a human. This reading costs money and takes a moment.</p>
+      <div class="row">
+        <button class="ghost" data-tier="cheap">Cheap Jury &middot; ~$0.01</button>
+        <button class="ghost" data-tier="premium">Premium Jury &middot; ~$0.07</button>
+        <span class="stat" id="deepStatus"></span>
+      </div>
+      <div id="deepResult"></div>
     </div>
   </section>
 
-  <section class="card" id="resultCard">
-    <div id="result"><p class="empty">Run a tool to see results here.</p></div>
-  </section>
+  <details class="raw">
+    <summary>The Editor's Longhand &mdash; raw JSON</summary>
+    <pre id="raw">—</pre>
+  </details>
 
-  <section class="card full">
-    <details>
-      <summary>Raw JSON response</summary>
-      <pre id="raw">—</pre>
-    </details>
-  </section>
-</main>
+  <p class="footer-note" id="footnote">readability-mcp &middot; results are cached &mdash; unchanged prose is never re-read</p>
+</div>
+
 <script>
-const $ = (s) => document.querySelector(s);
-const textEl = $("#text"), result = $("#result"), raw = $("#raw");
-textEl.addEventListener("input", () => { $("#charcount").textContent = textEl.value.length + " chars"; });
+var $=function(s){return document.querySelector(s);};
+var textEl=$("#text"), verdict=$("#verdict"), raw=$("#raw"),
+    clippings=$("#clippings"), clipGrid=$("#clipGrid"), footnote=$("#footnote");
 
-function scoreColor(v) { return v >= 70 ? "var(--good)" : v >= 45 ? "var(--warn)" : "var(--bad)"; }
-function esc(s){ return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+// ---- date line ----
+(function(){
+  var months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var d=new Date();
+  $("#dl-date").textContent = months[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear();
+})();
 
-function bars(obj) {
-  if (!obj || typeof obj !== "object") return "";
-  const rows = Object.entries(obj).filter(([,v]) => typeof v === "number").map(([k,v]) => {
-    const pct = Math.max(0, Math.min(100, v));
-    return '<div class="bar"><span class="lbl">'+esc(k)+'</span>'
-      + '<span class="track"><span class="fill" style="width:'+pct+'%;background:'+scoreColor(v)+'"></span></span>'
-      + '<span>'+Math.round(v)+'</span></div>';
+// ---- live counts ----
+function counts(){
+  var t=textEl.value;
+  $("#chars").textContent=t.length;
+  $("#words").textContent=(t.trim().match(/\\S+/g)||[]).length;
+}
+textEl.addEventListener("input",counts); counts();
+
+// ---- client-side cache: identical prose is never re-sent ----
+function hashKey(s){ var h=5381,i=s.length; while(i) h=(h*33)^s.charCodeAt(--i); return (h>>>0).toString(36); }
+var clientCache={};      // key -> response data
+var lastKey=null;
+
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); }
+function clr(v){ return v>=70?"var(--good)":v>=45?"var(--mid)":"var(--bad)"; }
+function note(v,inv){ var x=inv?100-v:v; return x>=80?"exemplary":x>=65?"sound":x>=45?"serviceable":x>=25?"laboured":"in want of revision"; }
+
+function grade(name,val,inv,extra){
+  var shown = Math.round(val);
+  var color = clr(inv?100-val:val);
+  return '<div class="grade"><div class="gname">'+name+'</div>'+
+    '<div class="gnum" style="color:'+color+'">'+shown+'<small>/100</small></div>'+
+    '<div class="gnote">'+note(val,inv)+'</div>'+(extra||'')+'</div>';
+}
+
+function bars(title,deck,obj){
+  if(!obj) return "";
+  var rows=Object.keys(obj).filter(function(k){return typeof obj[k]==="number";}).map(function(k){
+    var v=obj[k], pct=Math.max(2,Math.min(100,v)), name=k.replace(/_/g," ");
+    return '<div class="bar"><span class="bn">'+esc(name)+'</span><span class="bv">'+Math.round(v)+'</span>'+
+      '<span class="track"><span class="fill" style="width:'+pct+'%;background:'+clr(v)+'"></span></span></div>';
   });
-  return rows.length ? '<div class="bars">'+rows.join("")+'</div>' : "";
+  if(!rows.length) return "";
+  return '<div class="clip"><h4>'+title+'</h4><p class="deck">'+deck+'</p>'+rows.join("")+'</div>';
 }
 
-function render(tool, data) {
-  if (data.error) { result.innerHTML = '<p class="err">'+esc(data.error)+'</p>'; return; }
-  let html = "";
-  const headline =
-    tool === "ai" ? data.composite_score :
-    tool === "seo" ? data.overall_100 :
-    data.overall_100;
-  if (typeof headline === "number") {
-    const label = tool === "ai" ? "AI-likeness (lower = more human)" : "Overall / 100";
-    html += '<div class="score-big" style="color:'+scoreColor(tool==="ai"?100-headline:headline)+'">'+headline+'</div>';
-    html += '<div class="score-sub">'+label+(data.language?(' · lang: '+esc(data.language)):'')+'</div>';
-  }
-  if (typeof data.passed === "boolean")
-    html += '<div style="margin-top:8px"><span class="pill '+(data.passed?'pass':'fail')+'">'+(data.passed?'PASSED':'NEEDS WORK')+'</span></div>';
-  if (data.verdict) html += '<div class="verdict">'+esc(data.verdict)+'</div>';
+function renderAll(d){
+  if(d.error){ verdict.innerHTML='<p class="err">'+esc(d.error)+'</p>'; clippings.classList.add("hidden"); return; }
+  var r=d.readability, f=d.flow, s=d.seo, ai=d.ai;
+  var human = 100 - (ai.composite_score||0);
 
-  const advice = data.suggestions || data.summary_advice;
-  if (Array.isArray(advice) && advice.length)
-    html += '<ul class="advice">'+advice.map(a => '<li>'+esc(a)+'</li>').join("")+'</ul>';
+  var seal = (typeof s.passed==="boolean") ? '<div class="seal '+(s.passed?'pass':'fail')+'">'+(s.passed?'fit to publish':'send back')+'</div>' : '';
 
-  // Metric breakdown bars
-  if (tool === "flow") html += bars(data.metrics_100);
-  else if (tool === "score") html += bars(data.metrics_100);
-  else if (tool === "seo") html += bars(data.breakdown && data.breakdown.flow_metrics);
-  else if (tool === "ai" && data.signals) {
-    const sig = {};
-    for (const [k,v] of Object.entries(data.signals)) if (v && typeof v.score === "number") sig[k]=v.score;
-    html += bars(sig);
-    if (typeof data.total_cost_usd === "number") html += '<div class="score-sub">cost: $'+data.total_cost_usd.toFixed(4)+'</div>';
-  }
-  result.innerHTML = html || '<p class="empty">No displayable fields — see raw JSON.</p>';
+  var html='<div class="grades">'+
+    grade("Readability", r.overall_100||0, false)+
+    grade("Flow &amp; Cadence", f.overall_100||0, false)+
+    grade("Search Fitness", s.overall_100||0, false, seal)+
+    grade("Human Voice", human, false, '<div class="gnote">'+(100-human>=50?'reads as machine':'reads as human')+'</div>')+
+    '</div>';
+
+  if(s.verdict) html+='<p class="verdict-line">&ldquo;'+esc(s.verdict)+'&rdquo;</p>';
+
+  // Editor's marks = combined suggestions + ai advice
+  var marks=[].concat(s.suggestions||[], ai.summary_advice||[]);
+  html+='<div class="marks"><h3>The Editor\\'s Marks</h3>';
+  if(marks.length){ html+='<ul>'+marks.map(function(m){return '<li>'+esc(m)+'</li>';}).join("")+'</ul>'; }
+  else { html+='<p class="clean">Clean copy. The desk found nothing to strike.</p>'; }
+  html+='</div>';
+
+  verdict.innerHTML=html;
+
+  // Clippings
+  var sigScores={};
+  if(ai.signals) Object.keys(ai.signals).forEach(function(k){ var v=ai.signals[k]; if(v&&typeof v.score==="number") sigScores[k]=100-v.score; });
+  clipGrid.innerHTML =
+    bars("Readability","Formula scores, normalised. Higher reads easier.",r.metrics_100)+
+    bars("Flow","Rhythm, lexical range &amp; the glue between clauses.",f.metrics_100)+
+    bars("Search Fitness","The flow measures behind the SEO verdict.",(s.breakdown&&s.breakdown.flow_metrics))+
+    bars("Human Voice","Per-signal humanity. Higher = less machine-like.",sigScores);
+  clippings.classList.remove("hidden");
 }
 
-async function run(btn) {
-  const tool = btn.dataset.tool;
-  const text = textEl.value.trim();
-  if (!text) { result.innerHTML = '<p class="err">Enter some text first.</p>'; return; }
-  const body = { text, language: $("#lang").value };
-  if (tool === "ai" && btn.dataset.tier === "llm") body.tier = $("#aitier").value;
-  document.querySelectorAll("button[data-tool]").forEach(b => b.disabled = true);
-  result.innerHTML = '<p class="empty">Scoring…</p>';
-  try {
-    const res = await fetch("/api/" + tool, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    raw.textContent = JSON.stringify(data, null, 2);
-    render(tool, data);
-  } catch (e) {
-    result.innerHTML = '<p class="err">Request failed: '+esc(e.message)+'</p>';
-  } finally {
-    document.querySelectorAll("button[data-tool]").forEach(b => b.disabled = false);
-  }
+function setFootnote(cached){
+  footnote.innerHTML = cached
+    ? 'Drawn from the cache <span class="cachetag">&mdash; this prose was already on file</span>'
+    : 'readability-mcp &middot; results are cached &mdash; unchanged prose is never re-read';
 }
-document.querySelectorAll("button[data-tool]").forEach(b => b.addEventListener("click", () => run(b)));
+
+async function review(){
+  var text=textEl.value.trim();
+  if(!text){ verdict.innerHTML='<p class="err">The desk needs words before it can render a verdict.</p>'; return; }
+  var lang=$("#lang").value;
+  var key=lang+"|"+hashKey(text);
+  lastKey=key;
+
+  if(clientCache[key]){ renderAll(clientCache[key]); raw.textContent=JSON.stringify(clientCache[key],null,2); setFootnote(true); return; }
+
+  var btn=$("#go"); btn.disabled=true; var old=btn.textContent; btn.textContent="Reading\\u2026";
+  verdict.innerHTML='<p class="placeholder" style="float:none">The editor is reading&hellip;</p>';
+  try{
+    var res=await fetch("/api/all",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:text,language:lang})});
+    var d=await res.json();
+    clientCache[key]=d;
+    raw.textContent=JSON.stringify(d,null,2);
+    renderAll(d);
+    setFootnote(res.headers.get("x-cache")==="HIT"||d._cached);
+  }catch(e){ verdict.innerHTML='<p class="err">The desk could not be reached: '+esc(e.message)+'</p>'; }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
+$("#go").addEventListener("click",review);
+textEl.addEventListener("keydown",function(e){ if((e.metaKey||e.ctrlKey)&&e.key==="Enter") review(); });
+
+// ---- deep AI jury ----
+var deepCache={};
+async function deep(tier){
+  var text=textEl.value.trim();
+  if(!text){ $("#deepStatus").textContent="No manuscript on the desk."; return; }
+  var lang=$("#lang").value, key=tier+"|"+lang+"|"+hashKey(text);
+  var status=$("#deepStatus"), out=$("#deepResult");
+  if(deepCache[key]){ renderDeep(deepCache[key]); status.textContent="(from cache)"; return; }
+  document.querySelectorAll(".deep .ghost").forEach(function(b){b.disabled=true;});
+  status.textContent="The jury is deliberating\\u2026";
+  try{
+    var res=await fetch("/api/ai",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:text,language:lang,tier:tier})});
+    var d=await res.json();
+    if(d.error){ status.textContent=""; out.innerHTML='<p class="err">'+esc(d.error)+'</p>'; return; }
+    deepCache[key]=d; status.textContent=(res.headers.get("x-cache")==="HIT")?"(from cache)":"";
+    renderDeep(d);
+  }catch(e){ status.textContent=""; out.innerHTML='<p class="err">'+esc(e.message)+'</p>'; }
+  finally{ document.querySelectorAll(".deep .ghost").forEach(function(b){b.disabled=false;}); }
+}
+function renderDeep(d){
+  var human=100-(d.composite_score||0);
+  var cost=(typeof d.total_cost_usd==="number")?(' &middot; cost $'+d.total_cost_usd.toFixed(4)):'';
+  var panel=d.signals&&d.signals.llm_panel;
+  var agree=panel?(' &middot; agreement: '+esc(panel.agreement||"?")):'';
+  var html='<div class="grades" style="margin-top:16px"><div class="grade" style="border-right:1px solid var(--hair)">'+
+    '<div class="gname">Composite</div><div class="gnum" style="color:'+clr(human)+'">'+Math.round(human)+'<small>/100 human</small></div>'+
+    '<div class="gnote">'+esc(d.verdict||"")+cost+agree+'</div></div>'+
+    '<div class="grade"><div class="gname">Heuristic</div><div class="gnum">'+Math.round(100-(d.heuristic_score||0))+'<small>/100</small></div></div></div>';
+  if(panel&&panel.consensus_reasons&&panel.consensus_reasons.length){
+    html+='<div class="marks"><h3>Jury Consensus</h3><ul>'+panel.consensus_reasons.map(function(c){return '<li>'+esc(typeof c==="string"?c:(c.reason||JSON.stringify(c)))+'</li>';}).join("")+'</ul></div>';
+  }
+  $("#deepResult").innerHTML=html;
+}
+document.querySelectorAll(".deep .ghost").forEach(function(b){ b.addEventListener("click",function(){deep(b.dataset.tier);}); });
 </script>
 </body>
 </html>`;

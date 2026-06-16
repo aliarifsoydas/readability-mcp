@@ -7,6 +7,8 @@ import { flowScore } from "./flow.js";
 import { seoScore, SUPPORTED_FORMULAS, type Formula } from "./seo.js";
 import { aiDetectScore } from "./aidetect.js";
 import { renderDocsHtml, renderOpenApi } from "./docs.js";
+import { checkAuth, renderUiHtml } from "./ui.js";
+import type { PanelTier } from "./llm_panel.js";
 
 const LANG_ENUM = z.enum(["auto", ...SUPPORTED_LANGUAGES] as ["auto", ...typeof SUPPORTED_LANGUAGES]);
 
@@ -239,6 +241,70 @@ export class ReadabilityMCP extends McpAgent {
 interface Env {
   MCP_OBJECT: DurableObjectNamespace;
   OPENROUTER_API_KEY?: string;
+  UI_USER?: string;
+  UI_PASS?: string;
+}
+
+/** Read and validate the JSON body for an /api request. */
+async function readBody(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const data = await request.json();
+    return data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+
+/** Plain-HTTP handlers for the web UI, mirroring the MCP tools. */
+async function handleApi(tool: string, request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
+  const body = await readBody(request);
+  const text = typeof body.text === "string" ? body.text.trim() : "";
+  const language = (typeof body.language === "string" ? body.language : "auto") as
+    | (typeof SUPPORTED_LANGUAGES)[number]
+    | "auto";
+  if (tool !== "ai" && !text) return json({ error: "Field 'text' is required." }, 400);
+
+  try {
+    switch (tool) {
+      case "score":
+        return json(scoreText(text, language));
+      case "flow":
+        return json(flowScore(text, language));
+      case "seo":
+        return json(
+          seoScore(text, {
+            formula: typeof body.formula === "string" ? (body.formula as Formula) : undefined,
+            language,
+            threshold: typeof body.threshold === "number" ? body.threshold : undefined,
+            weight_readability:
+              typeof body.weight_readability === "number" ? body.weight_readability : undefined,
+          }),
+        );
+      case "ai": {
+        if (!text) return json({ error: "Field 'text' is required." }, 400);
+        const tier = body.tier === "cheap" || body.tier === "premium" ? (body.tier as PanelTier) : undefined;
+        const apiKey = env.OPENROUTER_API_KEY;
+        if (tier && !apiKey)
+          return json({ error: "LLM tiers require OPENROUTER_API_KEY to be configured." }, 400);
+        const result = await aiDetectScore(text, {
+          language,
+          llm: tier && apiKey ? { apiKey, tier, weight: typeof body.llm_weight === "number" ? body.llm_weight : undefined } : undefined,
+        });
+        return json(result);
+      }
+      default:
+        return json({ error: "Unknown tool." }, 404);
+    }
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : String(err) }, 400);
+  }
 }
 
 export default {
@@ -291,6 +357,19 @@ export default {
 
     if (url.pathname === "/mcp") {
       return ReadabilityMCP.serve("/mcp").fetch(request, env, ctx);
+    }
+
+    // Web UI + its JSON API, gated behind HTTP Basic Auth (UI_USER / UI_PASS).
+    if (url.pathname === "/ui" || url.pathname.startsWith("/api/")) {
+      const auth = checkAuth(request, env);
+      if (!auth.ok) return auth.response;
+
+      if (url.pathname === "/ui") {
+        return new Response(renderUiHtml(), {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
+      return handleApi(url.pathname.slice("/api/".length), request, env);
     }
 
     return new Response("Not found", { status: 404 });

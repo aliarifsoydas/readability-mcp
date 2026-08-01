@@ -121,6 +121,17 @@ test("plain Russian prose does not trigger the pattern signals", async () => {
   assert.ok(r.heuristic_score < 50, `heuristic score ${r.heuristic_score} too high for plain prose`);
 });
 
+test("a long unbroken letter run does not blow up the matcher", async () => {
+  // Guards a quadratic backtracking path in the Russian verb hint: one 64 KB
+  // Cyrillic "word" used to take ~52s, enough to exhaust a Worker's CPU budget.
+  const hostile = `${"ж".repeat(64_000)} ${"щ".repeat(64_000)}`;
+  const started = performance.now();
+  const r = await aiDetectScore(hostile, { language: "ru" });
+  const elapsed = performance.now() - started;
+  assert.ok(Number.isFinite(r.heuristic_score));
+  assert.ok(elapsed < 2_000, `took ${elapsed.toFixed(0)}ms — backtracking has regressed`);
+});
+
 test("scoring survives degenerate input in every mode", async () => {
   for (const input of [".", "  ", "Слово", "1234", "🙂"]) {
     for (const language of ["ru", "en", "auto"]) {

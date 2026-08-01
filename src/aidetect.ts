@@ -111,7 +111,11 @@ const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
   // Russian drops the present-tense copula ("Он врач." is a full sentence), so
   // a missing verb alone does not make a fragment. Predicatives and the dash
   // that stands in for the copula therefore count as a predicate too.
-  ru: /(?:^|[^\p{L}])(?:был|была|было|были|будет|будут|буду|есть|нет|можно|нужно|надо|важно|нельзя|необходимо|очевидно|понятно|ясно|должен|должна|должно|должны|может|могут)(?![\p{L}])|[\p{L}]{2,}(?:ет|ёт|ит|ут|ют|ат|ят|ем|ём|им|ешь|ёшь|ишь|ете|ите|[аеиоуыя]л[аои]?|ться|тся|[аяеиыу]ть|ся|сь)(?![\p{L}])|\s—\s/iu,
+  // The lookbehind before the suffix branch is load-bearing: without it every
+  // offset inside a letter run is a candidate start, `[\p{L}]{2,}` eats the run
+  // and backtracks, and matching goes quadratic — a 64 KB word of Cyrillic took
+  // 52 seconds, which is an easy way to burn a Worker's CPU budget.
+  ru: /(?:^|[^\p{L}])(?:был|была|было|были|будет|будут|буду|есть|нет|можно|нужно|надо|важно|нельзя|необходимо|очевидно|понятно|ясно|должен|должна|должно|должны|может|могут)(?![\p{L}])|(?<![\p{L}])[\p{L}]{2,}(?:ет|ёт|ит|ут|ют|ат|ят|ем|ём|им|ешь|ёшь|ишь|ете|ите|[аеиоуыя]л[аои]?|ться|тся|[аяеиыу]ть|ся|сь)(?![\p{L}])|\s—\s/iu,
 };
 
 function splitParagraphs(text: string): string[] {

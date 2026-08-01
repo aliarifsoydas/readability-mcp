@@ -12,8 +12,9 @@ A Model Context Protocol (MCP) server that scores text readability in multiple l
 | German (`de`) | Flesch (Deutsch), Wiener Sachtextformel |
 | French (`fr`) | Kandel-Moles |
 | Italian (`it`) | Gulpease |
+| Russian (`ru`) | Оборнева (Oborneva), Мацковский (Matskovskiy), Тулдава (Tuldava) |
 
-Set `language: "auto"` (default) for stopword-based detection.
+Set `language: "auto"` (default) for detection: Cyrillic text is resolved by script, Latin-script text by stopword frequency and diacritics.
 
 ## Tools
 
@@ -45,6 +46,24 @@ Set `language: "auto"` (default) for stopword-based detection.
 - `list_supported_languages()` — list languages, readability metrics, and flow metrics.
 
 All scoring tools return scores **normalized to 0-100** where higher = easier / more fluent.
+
+## Tests and benchmark
+
+```bash
+npm test         # unit + regression suite (no network)
+npm run benchmark # validate Russian scoring against a real grade-labelled corpus
+```
+
+`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, and degenerate input (empty strings, punctuation, emoji) across every language.
+
+`npm run benchmark` downloads the **Russian Readability Corpus** — Social Studies textbooks for grades 5-11, published with the Dialogue 2018 paper — into `benchmark/corpus/` (gitignored) and checks four things:
+
+1. **Tokenizer** — our ASL/ASW must track the paper's Table 1 (`r = 0.993` / `0.999`). We count words where the paper counts tokens including punctuation, so its ASL runs about one token per sentence higher; the benchmark asserts that gap stays a stable offset instead of drifting.
+2. **Ranking** — Spearman correlation between score and grade level, currently **ρ = −0.99** for the combined score and −0.98 or better for each formula on its own.
+3. **Grade bands** — grade 5 must land near 90 and grade 11 near 30; every grade is currently within 2 points of its target.
+4. **Calibration data** — prints the mean raw value per grade, which is the input for re-fitting the curves in `normalize.ts` if the tokenizer ever changes.
+
+The benchmark depends on an external download, so CI runs it as an advisory job; the calibration itself is pinned in the unit suite so a regression fails `npm test` regardless.
 
 ## Browse the tool catalog
 
@@ -127,3 +146,5 @@ Without the secret, `ai_score` returns heuristic-only results. With it, the tool
 - Public, unauthenticated by default. Add `workers-oauth-provider` if you need auth.
 - `score_url` uses Workers' native `HTMLRewriter` for content extraction — no DOM polyfill, zero extra deps.
 - Syllable counting uses language-specific vowel patterns; English uses an additional consonant-cluster heuristic.
+- Russian coefficients come from Ivanov, Solnyshkina & Solovyev, *Efficiency of Text Readability Features in Russian Academic Texts* (Dialogue 2018), §2. Their raw scales are not Flesch scales — Oborneva scores a 5th grade textbook around +43 and an 11th grade one around −12 on this tokenizer — so the 0-100 normalization is fitted to that paper's grade-level corpus rather than to the English bands. See `npm run benchmark`.
+- Two heuristics are language-aware for Russian specifically: the em-dash signal in `ai_score` is scored far more leniently, because the dash is a grammatical copula there (*Москва — столица России*), and the sentence-fragment check accepts verbless predicates, because Russian drops the present-tense copula (*Он врач.* is a complete sentence).

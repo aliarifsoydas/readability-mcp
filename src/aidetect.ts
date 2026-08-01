@@ -49,6 +49,24 @@ const AI_PHRASES: Record<SupportedLanguage, string[]> = {
     "atılan adımlar", "atılması gereken adımlar",
     "etkin bir şekilde", "verimli bir şekilde",
   ],
+  ru: [
+    "в современном мире", "в современном обществе", "в сегодняшнем мире",
+    "в эпоху цифровых технологий", "в постоянно меняющемся мире", "динамично развивающемся",
+    "важно отметить", "стоит отметить", "следует отметить", "нельзя не отметить",
+    "необходимо подчеркнуть", "стоит подчеркнуть",
+    "играет ключевую роль", "играет важную роль", "играет решающую роль",
+    "имеет огромное значение", "трудно переоценить", "невозможно переоценить",
+    "является неотъемлемой частью", "неотъемлемой частью",
+    "открывает новые возможности", "предоставляет уникальную возможность",
+    "широкий спектр", "целый ряд преимуществ", "ключевым аспектом",
+    "комплексный подход", "всесторонний анализ", "многогранный",
+    "в конечном счёте", "в конечном счете", "в конечном итоге",
+    "подводя итог", "в заключение", "таким образом, можно сказать",
+    "давайте рассмотрим", "давайте разберёмся", "погрузиться в мир",
+    "в этой статье мы", "в данной статье", "в этом руководстве",
+    "стремительно развивается", "стремительно меняется",
+    "эффективно и результативно", "качественно новый уровень",
+  ],
   es: [],
   de: [],
   fr: [],
@@ -62,6 +80,12 @@ const FRAGMENT_STARTERS: Record<SupportedLanguage, RegExp> = {
   de: /^(der|die|das|den|dem|ein|eine|einen|jeder|alle)\b/i,
   fr: /^(le|la|les|un|une|des|ce|cette|ces|chaque|tous)\b/i,
   it: /^(il|la|lo|gli|le|un|una|uno|questo|questa|ogni|tutti)\b/i,
+  // Russian has no articles, so demonstratives and quantifiers carry the role.
+  // The second branch catches adjective-initial sentences ("Высокое качество."),
+  // which is the shape LLM bullet fragments actually take here.
+  // `\b` is ASCII-only in JS and never fires between Cyrillic letters — the
+  // lookahead below is the working equivalent.
+  ru: /^(?:(?:этот|эта|это|эти|тот|та|те|каждый|каждая|каждое|все|весь|вся|любой|любая|некоторые|наш|наша|наши|ваш|ваша|ваши|свой|своя|данный|данная|такой|такая|такие)|[\p{L}]{3,}(?:ый|ий|ая|яя|ое|ее|ые|ие))(?![\p{L}])/iu,
 };
 
 const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
@@ -71,6 +95,10 @@ const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
   de: /\b(ist|sind|war|waren|hat|haben|hatte|wird|werden|wurde|kann|muss|soll|darf)\b/i,
   fr: /\b(est|sont|était|étaient|a|ont|avait|sera|seront|peut|doit|peuvent|doivent)\b/i,
   it: /\b(è|sono|era|erano|ha|hanno|aveva|sarà|saranno|può|deve|possono|devono)\b/i,
+  // Russian drops the present-tense copula ("Он врач." is a full sentence), so
+  // a missing verb alone does not make a fragment. Predicatives and the dash
+  // that stands in for the copula therefore count as a predicate too.
+  ru: /(?:^|[^\p{L}])(?:был|была|было|были|будет|будут|буду|есть|нет|можно|нужно|надо|важно|нельзя|необходимо|очевидно|понятно|ясно|должен|должна|должно|должны|может|могут)(?![\p{L}])|[\p{L}]{2,}(?:ет|ёт|ит|ут|ют|ат|ят|ем|ём|им|ешь|ёшь|ишь|ете|ите|[аеиоуыя]л[аои]?|ться|тся|ся|сь|ть)(?![\p{L}])|\s—\s/iu,
 };
 
 function splitParagraphs(text: string): string[] {
@@ -291,15 +319,31 @@ interface EmDashSignal {
   reason?: Reason;
 }
 
-function emDashSignal(text: string, sentenceCount: number): EmDashSignal {
+/**
+ * Russian writes the dash as a grammatical copula ("Москва — столица России")
+ * and as the dialogue marker, so a density that signals LLM style elsewhere is
+ * ordinary prose there and needs a much higher bar.
+ */
+const EM_DASH_LIMITS: Record<SupportedLanguage, { flagAt: number; scale: number }> = {
+  en: { flagAt: 0.1, scale: 200 },
+  tr: { flagAt: 0.1, scale: 200 },
+  es: { flagAt: 0.1, scale: 200 },
+  de: { flagAt: 0.1, scale: 200 },
+  fr: { flagAt: 0.1, scale: 200 },
+  it: { flagAt: 0.1, scale: 200 },
+  ru: { flagAt: 0.5, scale: 60 },
+};
+
+function emDashSignal(text: string, sentenceCount: number, lang: SupportedLanguage): EmDashSignal {
+  const { flagAt, scale } = EM_DASH_LIMITS[lang];
   const count = (text.match(/—|–/g) ?? []).length;
   const density = count / Math.max(1, sentenceCount);
-  const score = Math.min(100, density * 200);
+  const score = Math.min(100, density * scale);
   let reason: Reason | undefined;
-  if (density > 0.1) {
+  if (density > flagAt) {
     reason = {
       code: "em_dash_overuse",
-      severity: density > 0.3 ? "high" : "medium",
+      severity: density > flagAt * 3 ? "high" : "medium",
       explanation: `Em-dash yoğunluğu yüksek (cümle başına ${density.toFixed(3)}). LLM'lerin imza noktalama tercihi.`,
       evidence: { count, density: Math.round(density * 1000) / 1000 },
     };
@@ -320,6 +364,8 @@ const NOT_X_BUT_Y: Record<SupportedLanguage, RegExp> = {
   de: /\bnicht nur [\w\s,]{1,40}?sondern(?: auch)?\b/gi,
   fr: /\bnon seulement [\w\s,]{1,40}?mais(?: aussi| également)?\b/gi,
   it: /\bnon solo [\w\s,]{1,40}?ma(?: anche)?\b/gi,
+  // `\w` is ASCII-only, so the Cyrillic pattern has to spell out \p{L}.
+  ru: /(?:не только[\p{L}\s,]{1,40}?но и|не столько[\p{L}\s,]{1,40}?сколько)(?![\p{L}])/giu,
 };
 
 function notXButYSignal(text: string, lang: SupportedLanguage, sentenceCount: number): NotXButYSignal {
@@ -380,6 +426,14 @@ const ADVICE: Record<SupportedLanguage, Partial<Record<string, string>>> = {
     parallel_structure_run: "Break consecutive same-structured sentences: insert one with different length or different opening word.",
     em_dash_overuse: "Reduce em-dashes (—); replace with commas, parentheses, or two separate sentences.",
     not_x_but_y_pattern: "Reduce 'not X but Y' constructions; replace with natural phrasing.",
+  },
+  ru: {
+    low_burstiness: "Разнообразьте длину предложений: чередуйте короткие (3-6 слов) и длинные (18-25 слов).",
+    ai_phrase_cluster: "Уберите или замените найденные частотные штампы LLM (см. evidence.top).",
+    fragment_list_paragraph: "Перепишите абзац из идущих подряд обрывков как связное предложение или оформите его настоящим списком.",
+    parallel_structure_run: "Разбейте цепочку одинаково построенных предложений: вставьте предложение другой длины или с другим началом.",
+    em_dash_overuse: "Сократите число длинных тире (—); замените их запятыми, скобками или двумя отдельными предложениями.",
+    not_x_but_y_pattern: "Сократите конструкции «не только X, но и Y»; замените их естественными формулировками.",
   },
   es: {}, de: {}, fr: {}, it: {},
 };
@@ -472,7 +526,7 @@ export async function aiDetectScore(text: string, opts: AiDetectOptions = {}): P
   const ai_phrases = aiPhraseSignal(text, lang, sentences.length);
   const fragment_lists = fragmentListSignal(paragraphs, lang);
   const parallel_structure = parallelStructureSignal(sentences);
-  const em_dash = emDashSignal(text, sentences.length);
+  const em_dash = emDashSignal(text, sentences.length, lang);
   const not_x_but_y = notXButYSignal(text, lang, sentences.length);
 
   const w = { ...DEFAULT_WEIGHTS, ...(opts.weights ?? {}) };

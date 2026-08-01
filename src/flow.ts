@@ -2,6 +2,16 @@ import { splitSentences, splitWords, type SupportedLanguage } from "./text.js";
 import { detectLanguage } from "./scorers/index.js";
 
 const CONNECTIVES: Record<SupportedLanguage, Set<string>> = {
+  ru: new Set([
+    "однако", "но", "зато", "хотя", "тогда как", "в то время как",
+    "кроме того", "более того", "также", "к тому же", "вдобавок", "притом",
+    "поэтому", "следовательно", "таким образом", "итак", "в результате", "вследствие этого",
+    "потому что", "так как", "поскольку", "ибо", "ведь",
+    "затем", "потом", "далее", "сначала", "наконец", "в конце концов", "тем временем",
+    "с другой стороны", "напротив", "тем не менее", "всё же", "все же", "несмотря на",
+    "например", "к примеру", "то есть", "иными словами", "короче говоря", "в целом",
+    "и", "или", "а",
+  ]),
   tr: new Set([
     "ancak", "ama", "fakat", "lakin", "oysa", "halbuki",
     "ayrıca", "üstelik", "bunun yanında", "ek olarak", "bunun yanı sıra",
@@ -170,6 +180,7 @@ function interpret(score: number, lang: SupportedLanguage): string {
     de: ["Sehr flüssig", "Flüssig", "Mäßiger Fluss", "Stockend"],
     fr: ["Très fluide", "Fluide", "Débit modéré", "Saccadé"],
     it: ["Molto fluido", "Fluido", "Flusso moderato", "Spezzato"],
+    ru: ["Очень плавно", "Плавно", "Умеренная плавность", "Рвано"],
   };
   const [a, b, c, d] = lib[lang];
   if (score >= 80) return a;

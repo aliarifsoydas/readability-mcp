@@ -57,6 +57,37 @@ const WIENER: readonly Anchor[] = [
   [4, 95], [5, 85], [6, 75], [7, 65], [8, 60], [10, 50], [12, 35], [14, 20], [15, 15], [18, 0],
 ];
 
+/**
+ * The Russian curves are fitted by running the scorer over the Russian
+ * Readability Corpus (grade 5-11 textbooks) published with Ivanov, Solnyshkina
+ * & Solovyev (Dialogue 2018), so that each grade lands on the same normalized
+ * value across all three formulas: grade 5 -> 90 down to grade 11 -> 30.
+ *
+ * The anchors use the raw values this tokenizer measures, not the ASL/ASW in
+ * the paper's Table 1 — the paper counts punctuation as tokens, so its figures
+ * run about 8% higher and would shift every band. Re-fit with `npm run
+ * benchmark`, which prints the mean raw value per grade.
+ *
+ * Below grade 11 the tails are extrapolated so that dense academic and official
+ * prose, which scores far past the textbook range, still separates rather than
+ * pinning to 0.
+ */
+const OBORNEVA: readonly Anchor[] = [
+  [-140, 0], [-100, 5], [-70, 10], [-45, 15], [-25, 22], [-12.29, 30], [-8.44, 40], [-3.23, 50], [3.64, 60], [14.11, 70], [22.98, 80], [42.63, 90], [65, 100],
+];
+
+/**
+ * Matskovskiy weighs the share of 4+ syllable words heavily and reacts less to
+ * sentence length, so it is the coarsest of the three on short-sentence text.
+ */
+const MATSKOVSKIY: readonly Anchor[] = [
+  [5, 100], [8.38, 90], [10.46, 80], [11.21, 70], [12.26, 60], [13.19, 50], [13.91, 40], [14.37, 30], [16, 22], [18.5, 15], [21, 10], [24, 6], [28, 2], [34, 0],
+];
+
+const TULDAVA: readonly Anchor[] = [
+  [1.6, 100], [2.314, 90], [2.754, 80], [2.933, 70], [3.17, 60], [3.354, 50], [3.498, 40], [3.597, 30], [3.9, 22], [4.4, 15], [5.1, 9], [6, 4], [7.5, 0],
+];
+
 const ANCHOR_MAP: Record<string, readonly Anchor[]> = {
   flesch_reading_ease: IDENTITY,
   flesch_kincaid_grade: FK_GRADE,
@@ -78,6 +109,10 @@ const ANCHOR_MAP: Record<string, readonly Anchor[]> = {
   kandel_moles: IDENTITY,
 
   gulpease: IDENTITY,
+
+  oborneva: OBORNEVA,
+  matskovskiy: MATSKOVSKIY,
+  tuldava: TULDAVA,
 };
 
 export function normalizeMetric(name: string, value: number): number {

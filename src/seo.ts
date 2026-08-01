@@ -18,6 +18,9 @@ export const SUPPORTED_FORMULAS = [
   "wiener_sachtextformel",
   "kandel_moles",
   "gulpease",
+  "oborneva",
+  "matskovskiy",
+  "tuldava",
 ] as const;
 
 export type Formula = (typeof SUPPORTED_FORMULAS)[number];
@@ -29,6 +32,7 @@ const DEFAULT_FORMULA: Record<SupportedLanguage, Formula> = {
   de: "flesch_deutsch",
   fr: "kandel_moles",
   it: "gulpease",
+  ru: "oborneva",
 };
 
 interface VerdictBundle {
@@ -80,6 +84,24 @@ const MESSAGES: Record<SupportedLanguage, VerdictBundle> = {
   de: { ready: "SEO-bereit", simplify: "Lesbarkeit schwach: Sätze kürzen", improveFlow: "Fluss schwach: Satzlängen variieren", revise: "Grundlegende Überarbeitung nötig", suggestions: { simplify: [], improveFlow: [] } },
   fr: { ready: "Prêt pour le SEO", simplify: "Lisibilité faible: raccourcir les phrases", improveFlow: "Flux faible: varier la longueur des phrases", revise: "Révision globale nécessaire", suggestions: { simplify: [], improveFlow: [] } },
   it: { ready: "Pronto per SEO", simplify: "Leggibilità bassa: accorcia le frasi", improveFlow: "Flusso debole: varia la lunghezza delle frasi", revise: "Revisione generale necessaria", suggestions: { simplify: [], improveFlow: [] } },
+  ru: {
+    ready: "Готово к публикации с точки зрения SEO",
+    simplify: "Низкая читабельность: сократите предложения и упростите длинные слова",
+    improveFlow: "Слабая связность: разнообразьте длину предложений и добавьте связки",
+    revise: "Нужна общая переработка — слабы и читабельность, и связность",
+    suggestions: {
+      simplify: [
+        "Держите среднюю длину предложения в пределах 15 слов",
+        "Заменяйте четырёхсложные и более длинные слова короткими синонимами",
+        "Разбивайте предложение на два, если в нём две самостоятельные мысли",
+      ],
+      improveFlow: [
+        "Чередуйте короткие и длинные предложения — избегайте монотонного ритма",
+        "Добавьте связки: «однако», «поэтому», «с другой стороны», «кроме того»",
+        "Сократите повторы одного слова; используйте синонимы",
+      ],
+    },
+  },
 };
 
 export interface SeoScoreOptions {

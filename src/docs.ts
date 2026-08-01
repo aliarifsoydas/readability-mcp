@@ -26,7 +26,7 @@ export const TOOLS: ToolDoc[] = [
       "Runs the language's standard readability formulas (Flesch for EN, Ateşman for TR, etc) and returns both raw values and a 0-100 normalized score where higher = easier to read.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
     ],
     output_summary: "{ language, metrics, metrics_100, overall_100 }",
     example_request: { text: "Bu çok kısa bir Türkçe cümledir.", language: "auto" },
@@ -39,7 +39,7 @@ export const TOOLS: ToolDoc[] = [
       "Uses Cloudflare Workers' native HTMLRewriter to extract main text from the page (no headless browser, no DOM polyfill), then runs `score_text` on the extracted content. Returns the same shape as `score_text` plus url/title/text_preview.",
     params: [
       { name: "url", type: "string", required: true, description: "Webpage to fetch." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
     ],
     output_summary: "{ url, title, text_preview, language, metrics, metrics_100, overall_100 }",
     example_request: { url: "https://example.com/article" },
@@ -52,7 +52,7 @@ export const TOOLS: ToolDoc[] = [
       "Independent of formula-based readability. Measures: (a) rhythm — coefficient of variation of sentence lengths (low=monotone, very high=erratic, ~0.5 optimal), (b) lexical diversity — moving-average type-token ratio over a 50-token window, (c) connective density — discourse-marker hits per sentence. Returns each on 0-100 plus an overall.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
     ],
     output_summary: "{ language, overall_100, metrics_100: { rhythm, lexical_diversity, connective_density }, details, interpretation }",
     example_request: { text: "Cümle bir. Cümle iki. Cümle üç." },
@@ -83,7 +83,7 @@ export const TOOLS: ToolDoc[] = [
       "tier=heuristic → $0 / ~5ms · tier=cheap → ~$0.012 / ~10s · tier=premium → ~$0.066 / ~25s. LLM tiers require OPENROUTER_API_KEY secret. Output includes total_cost_usd per panel call.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to score." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
       { name: "tier", type: "string", required: false, description: "Scoring tier.", default: "heuristic", enum: ["heuristic", "cheap", "premium"] },
       { name: "models", type: "string[]", required: false, description: "Override the panel with custom OpenRouter model IDs. Implies LLM use; ignores `tier` if non-empty." },
       { name: "llm_weight", type: "number", required: false, description: "Weight of LLM panel score vs heuristic in composite_score (0-1).", default: "0.6" },
@@ -102,9 +102,9 @@ export const TOOLS: ToolDoc[] = [
   {
     name: "detect_language",
     summary: "Detect the language of a given text.",
-    description: "Stopword-frequency + diacritic heuristic across the 6 supported languages. Fast, deterministic, no external calls.",
+    description: "Script check for Cyrillic, then a stopword-frequency + diacritic heuristic across the Latin-script languages. Fast, deterministic, no external calls.",
     params: [{ name: "text", type: "string", required: true, description: "Text to detect language of." }],
-    output_summary: "{ language: 'en' | 'tr' | 'es' | 'de' | 'fr' | 'it' }",
+    output_summary: "{ language: 'en' | 'tr' | 'es' | 'de' | 'fr' | 'it' | 'ru' }",
     example_request: { text: "Bu bir Türkçe cümledir." },
     example_response_excerpt: { language: "tr" },
   },
@@ -115,7 +115,7 @@ export const TOOLS: ToolDoc[] = [
     params: [],
     output_summary: "{ languages, metrics_by_language, flow_metrics, note }",
     example_request: {},
-    example_response_excerpt: { languages: ["en", "tr", "es", "de", "fr", "it"], flow_metrics: ["rhythm", "lexical_diversity", "connective_density"] },
+    example_response_excerpt: { languages: ["en", "tr", "es", "de", "fr", "it", "ru"], flow_metrics: ["rhythm", "lexical_diversity", "connective_density"] },
   },
 ];
 

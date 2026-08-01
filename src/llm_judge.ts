@@ -82,7 +82,7 @@ const SCHEMA_HINT = `{
 }`;
 
 function buildUserPrompt(text: string, lang: SupportedLanguage): string {
-  const langTag = lang === "tr" ? "Türkçe" : lang.toUpperCase();
+  const langTag = lang === "tr" ? "Türkçe" : lang === "ru" ? "Русский" : lang.toUpperCase();
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p.length > 0);
   const numbered = paragraphs.map((p, i) => `[P${i}] ${p}`).join("\n\n");
   return `Dil: ${langTag}\n\nSCHEMA:\n${SCHEMA_HINT}\n\nMETİN:\n${numbered}`;

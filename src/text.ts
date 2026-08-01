@@ -1,4 +1,4 @@
-export type SupportedLanguage = "en" | "tr" | "es" | "de" | "fr" | "it";
+export type SupportedLanguage = "en" | "tr" | "es" | "de" | "fr" | "it" | "ru";
 
 const SENTENCE_SPLIT = /[.!?…]+(?:\s+|$)|[\n\r]+/u;
 const WORD_SPLIT = /[\p{L}\p{M}\p{N}'’\-]+/gu;
@@ -29,6 +29,7 @@ const VOWELS = {
   de: /[aeiouyäöü]+/g,
   fr: /[aeiouyàâäéèêëîïôöùûüÿœæ]+/g,
   it: /[aeiouàèéìíîòóùú]+/g,
+  ru: /[аеёиоуыэюя]/g,
 } as const;
 
 export function countSyllables(word: string, lang: SupportedLanguage): number {

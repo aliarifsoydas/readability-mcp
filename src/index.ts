@@ -24,7 +24,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         text: z.string().min(1).describe("The text to analyze."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
         ),
       },
       async ({ text, language }) => {
@@ -40,7 +40,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         url: z.string().url().describe("The URL of a webpage to fetch and score."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
         ),
       },
       async ({ url, language }) => {
@@ -79,7 +79,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         text: z.string().min(1).describe("The text to analyze for natural flow."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
         ),
       },
       async ({ text, language }) => {
@@ -101,7 +101,7 @@ export class ReadabilityMCP extends McpAgent {
             "Single readability formula to use. If omitted, uses the language's default (Flesch for EN, Ateşman for TR, etc).",
           ),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
         ),
         threshold: z
           .number()
@@ -152,7 +152,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         text: z.string().min(1).describe("The text to score for AI-likeness."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
         ),
         tier: z
           .enum(["heuristic", "cheap", "premium"])
@@ -224,6 +224,7 @@ export class ReadabilityMCP extends McpAgent {
                   de: ["flesch_deutsch", "wiener_sachtextformel"],
                   fr: ["kandel_moles"],
                   it: ["gulpease"],
+                  ru: ["oborneva", "matskovskiy", "tuldava"],
                 },
                 flow_metrics: ["rhythm", "lexical_diversity", "connective_density"],
                 note: "All scores including readability are normalized to 0-100 (higher = easier/more fluent). Each scoring tool returns both raw 'metrics' and 'metrics_100', plus an 'overall_100' average.",

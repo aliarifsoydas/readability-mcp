@@ -6,9 +6,10 @@ import { scoreSpanish } from "./es.js";
 import { scoreGerman } from "./de.js";
 import { scoreFrench } from "./fr.js";
 import { scoreItalian } from "./it.js";
+import { scoreRussian } from "./ru.js";
 import { normalizeMetrics, overallScore } from "../normalize.js";
 
-export const SUPPORTED_LANGUAGES: SupportedLanguage[] = ["en", "tr", "es", "de", "fr", "it"];
+export const SUPPORTED_LANGUAGES: SupportedLanguage[] = ["en", "tr", "es", "de", "fr", "it", "ru"];
 
 const STOPWORDS: Record<SupportedLanguage, string[]> = {
   en: ["the", "and", "of", "to", "in", "is", "that", "for", "with", "as", "this", "it", "be", "are"],
@@ -17,6 +18,7 @@ const STOPWORDS: Record<SupportedLanguage, string[]> = {
   de: ["der", "die", "das", "und", "ist", "von", "zu", "den", "ein", "eine", "mit", "auf", "für", "nicht"],
   fr: ["le", "la", "les", "de", "des", "et", "un", "une", "que", "qui", "dans", "pour", "pas", "est"],
   it: ["il", "la", "lo", "gli", "le", "di", "che", "e", "un", "una", "per", "con", "non", "è"],
+  ru: ["и", "в", "не", "на", "что", "с", "как", "это", "по", "но", "из", "для", "он", "к"],
 };
 
 export function detectLanguage(text: string): SupportedLanguage {
@@ -24,8 +26,14 @@ export function detectLanguage(text: string): SupportedLanguage {
   const tokens = lower.match(/[\p{L}]+/gu) ?? [];
   if (tokens.length === 0) return "en";
 
+  // Script beats stopwords: Russian is the only Cyrillic language supported,
+  // so a Cyrillic-majority text is settled before the Latin heuristics run.
+  const cyrillic = (lower.match(/\p{Script=Cyrillic}/gu) ?? []).length;
+  const latin = (lower.match(/\p{Script=Latin}/gu) ?? []).length;
+  if (cyrillic > latin) return "ru";
+
   const tokenSet = new Set(tokens);
-  const scores: Record<SupportedLanguage, number> = { en: 0, tr: 0, es: 0, de: 0, fr: 0, it: 0 };
+  const scores: Record<SupportedLanguage, number> = { en: 0, tr: 0, es: 0, de: 0, fr: 0, it: 0, ru: 0 };
 
   for (const lang of SUPPORTED_LANGUAGES) {
     for (const sw of STOPWORDS[lang]) {
@@ -60,6 +68,7 @@ export function scoreText(text: string, language: SupportedLanguage | "auto" = "
     case "de": raw = scoreGerman(text); break;
     case "fr": raw = scoreFrench(text); break;
     case "it": raw = scoreItalian(text); break;
+    case "ru": raw = scoreRussian(text); break;
   }
   const metrics_100 = normalizeMetrics(raw.metrics);
   const overall_100 = overallScore(metrics_100);

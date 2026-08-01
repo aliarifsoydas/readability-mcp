@@ -42,9 +42,11 @@ test("one occurrence is counted once even when list entries nest", async () => {
 });
 
 test("repeated distinct phrases still accumulate", async () => {
-  const text = "In conclusion, it is worth noting the tapestry here. In summary, we embark on a journey.";
+  const text =
+    "It is worth noting the seamless integration here. Let us delve into the intricacies of it, " +
+    "then embark on a journey through this ever-evolving field.";
   const r = await aiDetectScore(text, { language: "en" });
-  assert.ok(r.signals.ai_phrases.total >= 4, `only ${r.signals.ai_phrases.total} counted`);
+  assert.ok(r.signals.ai_phrases.total >= 5, `only ${r.signals.ai_phrases.total} counted`);
 });
 
 test("Russian noun-phrase bullets are fragments", async () => {
@@ -130,6 +132,55 @@ test("a long unbroken letter run does not blow up the matcher", async () => {
   const elapsed = performance.now() - started;
   assert.ok(Number.isFinite(r.heuristic_score));
   assert.ok(elapsed < 2_000, `took ${elapsed.toFixed(0)}ms — backtracking has regressed`);
+});
+
+test("Turkish verbs whose stems carry diacritics are recognised", async () => {
+  // `\w` is ASCII-only, so "çalışıyor" / "değişmiştir" / "güçlüdür" never
+  // reached their own suffix and five complete sentences read as fragments.
+  const text = "Bu sistem çalışıyor. Bu ürün değişmiştir. Bu firma güçlüdür. Bu rapor gelişmiştir. Bu değer kırmızıdır.";
+  const r = await aiDetectScore(text, { language: "tr" });
+  assert.equal(r.signals.fragment_lists.score, 0, "grammatical Turkish was flagged as a fragment run");
+});
+
+test("Turkish case folding is locale-aware", async () => {
+  // "İ".toLowerCase() is "i" plus a combining dot, so a sentence-initial
+  // "İfade" never matched a lexicon entry spelled "ifade".
+  const dotted = "İfade etmek gerekir ki bu böyle. İfade etmek gerekir ki devam ediyor. Bu makalede ele alınacaktır.";
+  const r = await aiDetectScore(dotted, { language: "tr" });
+  assert.ok(r.signals.ai_phrases.total >= 3, `only ${r.signals.ai_phrases.total} matched`);
+  const caps = "BU SİSTEM ÇALIŞIYOR. BU ÜRÜN DEĞİŞMİŞTİR. BU FİRMA GÜÇLÜDÜR.";
+  assert.equal((await aiDetectScore(caps, { language: "tr" })).signals.fragment_lists.score, 0);
+});
+
+test("Turkish starters ending in a diacritic actually fire", async () => {
+  // `\b` after "bazı"/"hiç" fired only when the NEXT character was ASCII.
+  const text = "Ürünümüz her ölçekte firmaya çözüm sunuyor.\n\nBazı avantajlar. Bazı riskler. Bazı sonuçlar. Bazı öneriler.";
+  const r = await aiDetectScore(text, { language: "tr" });
+  assert.ok(r.signals.fragment_lists.score > 0, "bullet fragments starting with 'Bazı' were missed");
+});
+
+test("numeric ranges are not counted as stylistic dashes", async () => {
+  const ranges = "Between 2020\u20132024 the figure rose. Pages 30\u201345 cover it. Items 1\u20133 and 5\u20139 apply. See table 2\u20134.";
+  assert.equal((await aiDetectScore(ranges, { language: "en" })).signals.em_dash.count, 0);
+  const real = "This is one thing \u2014 and another. Here \u2014 again \u2014 a dash. And \u2014 once more \u2014 like this.";
+  assert.ok((await aiDetectScore(real, { language: "en" })).signals.em_dash.count >= 4);
+});
+
+test("the typographic apostrophe matches the same phrases as the straight one", async () => {
+  const straight = "It's worth noting this. It's worth noting that. Let's dive into the topic now.";
+  const curly = straight.replace(/'/g, "\u2019");
+  const a = await aiDetectScore(straight, { language: "en" });
+  const b = await aiDetectScore(curly, { language: "en" });
+  assert.equal(a.signals.ai_phrases.total, b.signals.ai_phrases.total);
+  assert.ok(a.signals.ai_phrases.total >= 3);
+});
+
+test("text with no words scores zero", async () => {
+  for (const input of ["", "   ", "\u2014 \u2014 \u2014 \u2014 \u2014", "...", "!!!"]) {
+    const r = await aiDetectScore(input, { language: "en" });
+    assert.equal(r.heuristic_score, 0, JSON.stringify(input));
+    assert.equal(r.verdict, "likely_human");
+  }
 });
 
 test("scoring survives degenerate input in every mode", async () => {

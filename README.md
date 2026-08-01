@@ -155,3 +155,6 @@ Without the secret, `ai_score` returns heuristic-only results. With it, the tool
 Measured on Russian: real human prose (grade 5-11 textbooks, six Wikipedia articles) scores **1-8**, while unedited LLM article and marketing copy scores **44-58** — a clean 37-point gap, with zero false fragment runs on the human side.
 
 The same measurement shows the limit. LLM text rewritten in a natural voice — no stock openers, varied sentence length — scores **2-13**, indistinguishable from human. Four of the six heuristic signals are phrase and structure matchers, so they detect *unedited LLM boilerplate*, not authorship. Treat a low heuristic score as "no boilerplate found", not as "written by a human", and use the LLM judge panel (`tier: "cheap"` / `"premium"`) when the question is actually authorship.
+
+**Known gap:** English and Turkish fragment detection keys on a determiner, so noun-phrase bullet lists (*Fast delivery. Time savings.* / *Esnek saatler. Zaman tasarrufu.*) are not caught. Russian solves this by keying on the missing predicate instead, but that does not transfer: applying it to Turkish produced a **25.6% false-positive rate** on human prose (49% on Wikipedia), because Turkish nominal sentences take no overt copula (*Hava güzel.*). Closing this properly needs a real predicate detector per language.
+

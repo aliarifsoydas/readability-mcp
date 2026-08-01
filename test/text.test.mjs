@@ -38,6 +38,20 @@ test("sentences split on terminal punctuation and newlines", () => {
   assert.equal(splitSentences("Первая строка\nВторая строка").length, 2);
 });
 
+test("a token must contain a letter or digit", () => {
+  // A bare "-" used to count as a word, so every markdown bullet shared a first
+  // token and the word count was inflated.
+  assert.deepEqual(splitWords("- item one"), ["item", "one"]);
+  assert.deepEqual(splitWords("-- --- '"), []);
+  assert.deepEqual(splitWords("don't well-known co-operate O'Neill"), ["don't", "well-known", "co-operate", "O'Neill"]);
+});
+
+test("a terminator followed by a closing quote still ends the sentence", () => {
+  assert.equal(splitSentences('He said "hello." Then he left. She agreed.').length, 3);
+  assert.equal(splitSentences('Wait! "Really?" Yes. Fine.').length, 4);
+  assert.equal(splitSentences("Done.) Next one. And another.").length, 3);
+});
+
 test("basicStats stays finite on degenerate input", () => {
   for (const input of ["", "   ", "\n\n", "...", "123 456", "🙂🙂"]) {
     const s = basicStats(input, "ru");

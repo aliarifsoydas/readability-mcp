@@ -1,53 +1,55 @@
-import { splitSentences, splitWords, type SupportedLanguage } from "./text.js";
+import { splitSentences, splitWords, foldCase, type SupportedLanguage } from "./text.js";
 import { detectLanguage } from "./scorers/index.js";
 import { llmPanel, modelsForTier, type PanelResult, type PanelTier } from "./llm_panel.js";
 
 const AI_PHRASES: Record<SupportedLanguage, string[]> = {
   en: [
-    "delve into", "delves into", "delving into",
-    "tapestry", "rich tapestry",
+    "delve into", "delves into", "delving into", "let us delve", "let's delve", "delved into",
+    "tapestry of", "rich tapestry",
     "navigate the landscape", "navigating the landscape", "navigate the complexities",
-    "in conclusion", "in summary", "to summarize", "in essence",
-    "it's worth noting", "it is worth noting", "it should be noted",
+    "navigating the complexities",
+    "it's worth noting", "it is worth noting", "it should be noted", "it's worth mentioning",
     "it's important to note", "it is important to note",
-    "in the realm of", "in the world of", "at the heart of",
+    "it's important to remember", "it is important to remember",
     "stand as a testament", "stands as a testament",
-    "embark on", "embark on a journey", "embarking on",
+    "embark on a", "embark on a journey", "embarking on",
     "uncharted territory", "uncharted waters",
-    "ever-evolving", "ever-changing", "in today's fast-paced",
-    "in today's digital age", "in the digital age",
-    "harness the power", "leverage the power", "unleash the potential", "unlock the potential",
+    "ever-evolving", "ever-changing world", "ever-changing landscape",
+    "in today's fast-paced", "in today's digital age", "in the digital age",
+    "in today's world", "in today's competitive",
+    "harness the power", "harness the potential", "leverage the power",
+    "unleash the potential", "unleash the power", "unlock the potential", "unlock the power",
     "play a pivotal role", "plays a pivotal role", "pivotal role",
+    "plays a crucial role", "play a crucial role", "plays a vital role",
     "the intricacies of", "intricate details", "multifaceted",
-    "seamlessly integrate", "seamless integration",
+    "seamlessly integrate", "seamlessly integrates", "seamless integration",
     "holistic approach", "comprehensive understanding",
     "foster a sense", "foster an environment",
-    "the importance of", "cannot be overstated",
+    "cannot be overstated",
     "a testament to", "a beacon of", "shed light on",
-    "in this article, we will", "in this guide, we will",
-    "by the end of this", "let's dive into", "let us delve",
+    "lies at the heart of", "sits at the heart of",
+    "in this article, we will", "in this article, we'll",
+    "in this guide, we will", "in this guide, we'll", "in this post, we'll",
+    "we'll walk you through",
+    "by the end of this", "by the end of this article", "let's dive into",
   ],
   tr: [
-    "günümüzde", "günümüz dünyasında", "günümüz teknoloji çağında", "günümüz koşullarında",
-    "şüphesiz", "kuşkusuz", "hiç şüphesiz", "hiç kuşkusuz",
+    "günümüz dünyasında", "günümüz teknoloji çağında", "günümüz koşullarında",
+    "hiç şüphesiz", "hiç kuşkusuz",
     "belirtmek gerekir ki", "belirtmek gerekir", "ifade etmek gerekir",
-    "bu bağlamda", "bu çerçevede", "bu kapsamda", "bu doğrultuda",
-    "söz konusu olduğunda",
     "önemli bir rol oynamaktadır", "kritik bir rol oynar", "kritik bir rol oynamaktadır",
     "hayati bir öneme sahiptir", "büyük önem taşımaktadır", "büyük önem arz etmektedir",
     "göz ardı edilemez", "göz ardı edilmemelidir",
     "ele alınması gereken", "ele almak gerekirse",
-    "dikkat çekici bir şekilde", "dikkate değer", "kayda değer",
+    "dikkat çekici bir şekilde",
     "hızla değişen", "hızla gelişen", "sürekli evrilen", "sürekli değişen",
     "bütünsel bir yaklaşım", "kapsamlı bir bakış",
-    "çok yönlü", "çok katmanlı", "çok boyutlu",
-    "ön plana çıkmaktadır", "öne çıkmaktadır", "bir adım öne çıkar",
-    "değerlendirildiğinde", "incelendiğinde", "ele alındığında",
-    "sonuç olarak", "özetle", "netice itibarıyla", "kısacası",
+    "ön plana çıkmaktadır", "bir adım öne çıkar",
+    "özetle", "netice itibarıyla",
     "vurgulamak gerekir", "altını çizmek gerekir",
-    "bu makalede", "bu yazıda", "bu rehberde",
+    "özetlemek gerekirse", "toparlamak gerekirse",
+    "bu makalede", "bu makalemizde", "bu yazıda", "bu yazımızda", "bu rehberde",
     "atılan adımlar", "atılması gereken adımlar",
-    "etkin bir şekilde", "verimli bir şekilde",
   ],
   ru: [
     "в современном мире", "в современном обществе", "в сегодняшнем мире",
@@ -82,7 +84,16 @@ const AI_PHRASES: Record<SupportedLanguage, string[]> = {
 
 const FRAGMENT_STARTERS: Record<SupportedLanguage, RegExp> = {
   en: /^(the|a|an|our|your|their|this|that|those|these|every|each|all|some|any|no)\b/i,
-  tr: /^(bu|şu|o|her|tüm|tümü|bir|bazı|hiç|kimi|en)\b/i,
+  // `\b` is ASCII-only, so after a final `ı`/`ç` it fired only when the NEXT
+  // character was an ASCII letter — inverting `bazı` and `hiç` and shadowing
+  // `tümü` behind `tüm`. The lookahead is the working equivalent.
+  // Broadening this the way Russian was broadened does not transfer: Turkish
+  // nominal sentences take no overt copula ("Hava güzel."), and the verb hint
+  // only knows suffixed forms, so accepting any capitalised opener produced a
+  // 25.6% false-positive rate on human Turkish (49% on Wikipedia). Noun-phrase
+  // bullet fragments therefore stay uncovered here until there is a real
+  // predicate detector for Turkish.
+  tr: /^(?:bu|şu|o|her|tüm|tümü|bir|bazı|hiç|kimi|en)(?![\p{L}])/iu,
   es: /^(el|la|los|las|un|una|unos|unas|este|esta|esos|esas)\b/i,
   de: /^(der|die|das|den|dem|ein|eine|einen|jeder|alle)\b/i,
   fr: /^(le|la|les|un|une|des|ce|cette|ces|chaque|tous)\b/i,
@@ -103,7 +114,10 @@ const FRAGMENT_STARTERS: Record<SupportedLanguage, RegExp> = {
 
 const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
   en: /\b(is|are|was|were|be|been|being|am|has|have|had|do|does|did|will|would|can|could|should|may|might|must|shall|let|gets|got|goes|went|comes|came|sees|saw|knows|knew|thinks|thought|says|said|tells|told|makes|made|takes|took)\b/i,
-  tr: /\b\w+(yor(?:um|sun|uz|sunuz|lar)?|miş(?:tir|ler)?|mış(?:tır|lar)?|muş(?:tur|lar)?|müş(?:tür|ler)?|acak(?:tır|lar)?|ecek(?:tir|ler)?|dır|dir|dur|dür|tır|tir|tur|tür)\b/i,
+  // `\w+` admits only ASCII, so a stem ending in ı/ü/ş/ğ/ö/ç ("çalışıyor",
+  // "değişmiştir", "güçlüdür") never reached its own suffix and the sentence
+  // read as verbless. The lookbehind also keeps matching linear.
+  tr: /(?<![\p{L}])[\p{L}]+(?:yor(?:um|sun|uz|sunuz|lar)?|miş(?:tir|ler)?|mış(?:tır|lar)?|muş(?:tur|lar)?|müş(?:tür|ler)?|acak(?:tır|lar)?|ecek(?:tir|ler)?|[dt][ıiuü]r)(?![\p{L}])/iu,
   es: /\b(es|son|era|fue|fueron|ha|han|había|hay|está|están|tiene|tienen)\b/i,
   de: /\b(ist|sind|war|waren|hat|haben|hatte|wird|werden|wurde|kann|muss|soll|darf)\b/i,
   fr: /\b(est|sont|était|étaient|a|ont|avait|sera|seront|peut|doit|peuvent|doivent)\b/i,
@@ -129,7 +143,9 @@ function isFragment(sentence: string, lang: SupportedLanguage): boolean {
   const words = splitWords(sentence);
   if (words.length < 2 || words.length > 8) return false;
   const startsWithDeterminer = FRAGMENT_STARTERS[lang].test(sentence.trim());
-  const hasVerb = SENTENCE_VERB_HINT[lang].test(sentence);
+  // Folded for the verb test only: the Russian starter leans on \p{Lu}, but the
+  // verb hints are case-insensitive and Turkish needs locale-aware folding.
+  const hasVerb = SENTENCE_VERB_HINT[lang].test(foldCase(sentence, lang));
   return startsWithDeterminer && !hasVerb;
 }
 
@@ -173,8 +189,13 @@ interface BurstinessSignal {
 function burstinessSignal(sentences: string[]): BurstinessSignal {
   // Drop heading-like ultra-short "sentences" (1-2 words) — they pollute CV
   const lengths = sentences.map((s) => splitWords(s).length).filter((n) => n >= 3);
+  if (lengths.length === 0) {
+    // Nothing to measure: stay at 0 rather than the neutral 50, which otherwise
+    // gives empty or punctuation-only input a nonzero AI score.
+    return { score: 0, cv: 0, mean_sentence_length: 0 };
+  }
   if (lengths.length < 3) {
-    return { score: 50, cv: 0, mean_sentence_length: lengths[0] ?? 0 };
+    return { score: 50, cv: 0, mean_sentence_length: Math.round(mean(lengths) * 100) / 100 };
   }
   const m = mean(lengths);
   const cv = stdev(lengths) / (m || 1);
@@ -207,7 +228,8 @@ interface AiPhraseSignal {
 function aiPhraseSignal(text: string, lang: SupportedLanguage, sentenceCount: number): AiPhraseSignal {
   const phrases = AI_PHRASES[lang];
   if (!phrases.length) return { score: 0, hits: [], total: 0 };
-  const lower = text.toLowerCase();
+  // Both apostrophes are one UTF-16 unit, so the claim mask stays aligned.
+  const lower = foldCase(text, lang).replace(/[\u2019\u02BC]/g, "'");
   const claimed = new Uint8Array(lower.length);
   const hits: { phrase: string; count: number }[] = [];
   let total = 0;
@@ -374,7 +396,10 @@ const EM_DASH_LIMITS: Record<SupportedLanguage, { flagAt: number; scale: number 
 
 function emDashSignal(text: string, sentenceCount: number, lang: SupportedLanguage): EmDashSignal {
   const { flagAt, scale } = EM_DASH_LIMITS[lang];
-  const count = (text.match(/—|–/g) ?? []).length;
+  const count =
+    (text.match(/—/g) ?? []).length +
+    // U+2013 between digits is a numeric range, not a stylistic dash.
+    (text.match(/(?<!\d)–(?!\d)/g) ?? []).length;
   const density = count / Math.max(1, sentenceCount);
   const score = Math.min(100, density * scale);
   let reason: Reason | undefined;
@@ -392,35 +417,144 @@ function emDashSignal(text: string, sentenceCount: number, lang: SupportedLangua
 interface NotXButYSignal {
   score: number;
   count: number;
+  multi_item_runs: number;
   reason?: Reason;
 }
 
-const NOT_X_BUT_Y: Record<SupportedLanguage, RegExp> = {
-  en: /\b(not (?:just |only |merely |simply )?[\w\s,]{1,40}?[,;]?\s*but(?: also| rather)?)\b/gi,
-  tr: /\b(?:sadece|yalnızca|salt)\b[\w\s,]{1,40}?\b(?:değil(?:dir)?|olmayıp)\b[\w\s,]{1,40}?\b(?:aynı zamanda|ayrıca|hem de|bilakis)\b/gi,
-  es: /\bno (?:solo |solamente )[\w\s,]{1,40}?(?:sino(?: también)?)\b/gi,
-  de: /\bnicht nur [\w\s,]{1,40}?sondern(?: auch)?\b/gi,
-  fr: /\bnon seulement [\w\s,]{1,40}?mais(?: aussi| également)?\b/gi,
-  it: /\bnon solo [\w\s,]{1,40}?ma(?: anche)?\b/gi,
-  // `\w` is ASCII-only, so the Cyrillic pattern has to spell out \p{L}.
-  ru: /(?:не только[\p{L}\s,]{1,40}?но и|не столько[\p{L}\s,]{1,40}?сколько)(?![\p{L}])/giu,
+/**
+ * The rhetorical antithesis LLMs lean on. One regex per language could not carry
+ * it: the shape ranges from "not only X but also Y" to a bare "X değil, Y" to a
+ * multi-item run ("not A, not B, not C — but D"), and the pivot is as often a
+ * dash, colon or full stop as it is a conjunction. Each language therefore gets
+ * an ordered list, most specific first, and matched spans are claimed so the
+ * same clause is not counted twice.
+ *
+ * `\w` and `\b` are ASCII-only in JS, which used to make the Turkish pattern
+ * inert the moment a ğ/ü/ş/ı/ö/ç fell between the two markers — i.e. nearly
+ * always. Every class below is Unicode.
+ */
+const GAP = String.raw`[\p{L}\p{N}\s,;:'’\-–—()]`;
+
+/** A subject plus its copula, e.g. "it's", "you're", "the problem is". */
+const SUBJ = String.raw`(?:(?:the|a|an|this|that|our|your|their|his|her|its)\s+)?(?:\p{L}+['’](?:s|re|ll|ve)|\p{L}+\s+(?:is|are|was|were|will))`;
+
+/** Marks a negated item, used to tell a two-part antithesis from a multi-item run. */
+const NEGATION_TOKEN: Record<SupportedLanguage, RegExp> = {
+  en: /(?<![\p{L}])(?:not|no|never|isn['’]t|aren['’]t|wasn['’]t|weren['’]t|don['’]t|doesn['’]t|didn['’]t)(?![\p{L}])/giu,
+  tr: /(?<![\p{L}])(?:değil(?:dir)?|olmayıp|ne)(?![\p{L}])/giu,
+  ru: /(?<![\p{L}])(?:не|ни)(?![\p{L}])/giu,
+  es: /(?<![\p{L}])no(?![\p{L}])/giu,
+  de: /(?<![\p{L}])nicht(?![\p{L}])/giu,
+  fr: /(?<![\p{L}])(?:ne|non)(?![\p{L}])/giu,
+  it: /(?<![\p{L}])non(?![\p{L}])/giu,
 };
 
+const NOT_X_BUT_Y: Record<SupportedLanguage, RegExp[]> = {
+  en: [
+    // multi-item: "Not a strategy, not a roadmap, not a plan — but a hunch."
+    new RegExp(String.raw`(?<![\p{L}])not(?![\p{L}])${GAP}{1,60}?,\s*not(?![\p{L}])${GAP}{1,80}?(?:[—–:-]|,\s*but|\bbut)(?![\p{L}])`, "giu"),
+    // "not only/just/merely X but (also) Y"
+    new RegExp(String.raw`(?<![\p{L}])not\s+(?:just|only|merely|simply)(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])but(?:\s+(?:also|rather))?(?![\p{L}])`, "giu"),
+    // A negated frame, a pivot, then the frame echoed: "It's not X. It's Y.",
+    // "The problem isn't X; the problem is Y.", "You're not X — you're Y."
+    new RegExp(String.raw`(?<![\p{L}])${SUBJ}\s+(?:not|never)(?![\p{L}])${GAP}{1,55}?[.,;:—–]\s*${SUBJ}(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])\p{L}+\s*(?:isn|aren|wasn|weren)['’]t(?![\p{L}])${GAP}{1,55}?[.,;:—–]\s*${SUBJ}(?![\p{L}])`, "giu"),
+    // "We don't need X. We need Y." / "We don't need X, we need Y."
+    new RegExp(String.raw`(?<![\p{L}])(?:do|does|did)n['’]t\s+(\p{L}+)(?![\p{L}])${GAP}{1,60}?[.,;:—–]\s*\p{L}{1,12}\s+\1(?![\p{L}])`, "giu"),
+    // bare "not a bug, but a feature" — the determiner is what separates
+    // rhetorical antithesis from ordinary concession ("could not reproduce the
+    // crash, but CI caught it"), where `not` negates a verb instead.
+    new RegExp(String.raw`(?<![\p{L}])not\s+(?:a|an|the|one|any|some|all|every|my|our|your|their|his|her|its)(?![\p{L}])${GAP}{1,45}?(?<![\p{L}])but(?:\s+(?:also|rather))?(?![\p{L}])`, "giu"),
+    // inverted appositive: "a beginning, not an end"
+    new RegExp(String.raw`,\s*not\s+(?:a|an|the|just|only|merely|simply)(?![\p{L}])${GAP}{1,40}?[.!?]`, "giu"),
+  ],
+  tr: [
+    // multi-item: "Ne kod, ne araç, ne süreç — mesele insan."
+    new RegExp(String.raw`(?<![\p{L}])ne(?![\p{L}])${GAP}{1,50}?,\s*ne(?:\s+de)?(?![\p{L}])${GAP}{1,60}?[—–,.]`, "giu"),
+    // "ne X ne de Y"
+    new RegExp(String.raw`(?<![\p{L}])ne(?![\p{L}])${GAP}{1,50}?(?<![\p{L}])ne\s+de(?![\p{L}])`, "giu"),
+    // "sadece/yalnızca X değil, aynı zamanda Y"
+    new RegExp(String.raw`(?<![\p{L}])(?:sadece|yalnızca|salt)(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])(?:değil(?:dir)?|olmayıp)(?![\p{L}])`, "giu"),
+    // plain "X değil, Y" — the workhorse form, and the one that was fully inert
+    new RegExp(String.raw`(?<![\p{L}])değil(?:dir|di)?(?![\p{L}])\s*[,;—–]\s*\p{L}${GAP}{0,60}?[.!?]`, "giu"),
+    // "X değil. Y." across a sentence break
+    new RegExp(String.raw`(?<![\p{L}])değil(?:dir|di)?(?![\p{L}])\s*\.\s*\p{Lu}${GAP}{0,60}?[.!?]`, "gu"),
+  ],
+  ru: [
+    // multi-item: "Не в скорости, не в цене, не в масштабе — а в доверии."
+    new RegExp(String.raw`(?<![\p{L}])(?:не|ни)(?![\p{L}])${GAP}{1,50}?,\s*(?:не|ни)(?![\p{L}])${GAP}{1,70}?[—–,]\s*а(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])ни(?![\p{L}])${GAP}{1,50}?,\s*ни(?![\p{L}])${GAP}{1,70}?[—–]`, "giu"),
+    // "не только X, но и Y" / "не столько X, сколько Y"
+    new RegExp(String.raw`(?<![\p{L}])не только(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])но и(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])не столько(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])сколько(?![\p{L}])`, "giu"),
+    // "не X, а Y" — the dominant Russian antithesis, previously absent entirely
+    new RegExp(String.raw`(?<![\p{L}])не(?![\p{L}])${GAP}{1,60}?[,—–]\s*а(?![\p{L}])`, "giu"),
+    // "Это не X — это Y." / "Речь идёт не о X. Речь идёт о Y."
+    new RegExp(String.raw`(?<![\p{L}])не(?![\p{L}])${GAP}{1,60}?[—–]\s*(?:это|он|она|оно|они)(?![\p{L}])`, "giu"),
+  ],
+  es: [
+    new RegExp(String.raw`(?<![\p{L}])no\s+(?:solo|sólo|solamente)(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])sino(?:\s+también)?(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])no(?![\p{L}])${GAP}{1,50}?(?<![\p{L}])sino(?![\p{L}])`, "giu"),
+  ],
+  de: [
+    new RegExp(String.raw`(?<![\p{L}])nicht\s+nur(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])sondern(?:\s+auch)?(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])nicht(?![\p{L}])${GAP}{1,50}?(?<![\p{L}])sondern(?![\p{L}])`, "giu"),
+  ],
+  fr: [
+    new RegExp(String.raw`(?<![\p{L}])non\s+seulement(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])mais(?:\s+(?:aussi|également))?(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])(?:ne|n['’])(?![\p{L}])${GAP}{1,50}?(?<![\p{L}])pas${GAP}{1,40}?(?<![\p{L}])mais(?![\p{L}])`, "giu"),
+  ],
+  it: [
+    new RegExp(String.raw`(?<![\p{L}])non\s+solo(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])ma(?:\s+anche)?(?![\p{L}])`, "giu"),
+    new RegExp(String.raw`(?<![\p{L}])non(?![\p{L}])${GAP}{1,50}?(?<![\p{L}])ma(?:\s+anche)?(?![\p{L}])`, "giu"),
+  ],
+};
+
+
 function notXButYSignal(text: string, lang: SupportedLanguage, sentenceCount: number): NotXButYSignal {
-  const re = NOT_X_BUT_Y[lang];
-  const count = (text.match(re) ?? []).length;
-  const density = count / Math.max(1, sentenceCount);
+  const claimed = new Uint8Array(text.length);
+  let count = 0;
+  let multiItem = 0;
+  // Patterns run most specific first and claim their span, so a clause that two
+  // of them describe is counted once.
+  for (const re of NOT_X_BUT_Y[lang]) {
+    for (const m of text.matchAll(re)) {
+      const start = m.index ?? 0;
+      const end = start + m[0].length;
+      if (end <= start) continue;
+      let free = true;
+      for (let i = start; i < end; i++) {
+        if (claimed[i]) {
+          free = false;
+          break;
+        }
+      }
+      if (!free) continue;
+      claimed.fill(1, start, end);
+      count++;
+      // "Not A, not B, not C — but D" is a stronger tell than a two-part
+      // antithesis, so a run of negated items counts for more than one.
+      const negations = (m[0].match(NEGATION_TOKEN[lang]) ?? []).length;
+      if (negations >= 3) multiItem += 2;
+      else if (negations === 2) multiItem += 1;
+    }
+  }
+  const weighted = count + multiItem;
+  const density = weighted / Math.max(1, sentenceCount);
   const score = Math.min(100, density * 400);
   let reason: Reason | undefined;
-  if (count >= 2) {
+  // Gated on density, not raw count: a novel accumulates a dozen antitheses over
+  // 100k words as a matter of course, while three in a 15-sentence article is the
+  // tell. Measured human prose sits near 0.01 per sentence in every register.
+  if (weighted >= 2 && density >= 0.05) {
     reason = {
       code: "not_x_but_y_pattern",
-      severity: count >= 4 ? "high" : "medium",
-      explanation: `"X değil Y" / "not just X but Y" retorik kalıbı ${count} kez kullanılmış. LLM'lerin sevdiği balanslı antitez yapısı; insan yazımında bu yoğunlukta nadir.`,
-      evidence: { count },
+      severity: weighted >= 4 ? "high" : "medium",
+      explanation: `"X değil Y" / "not just X but Y" retorik kalıbı ${count} kez kullanılmış${multiItem > 0 ? `, ${multiItem} tanesi çok öğeli dizi` : ""}. LLM'lerin sevdiği balanslı antitez yapısı; insan yazımında bu yoğunlukta nadir.`,
+      evidence: { count, multi_item_runs: multiItem },
     };
   }
-  return { score: Math.round(score * 100) / 100, count, reason };
+  return { score: Math.round(score * 100) / 100, count, multi_item_runs: multiItem, reason };
 }
 
 export interface AiDetectResult {
@@ -492,9 +626,12 @@ function buildPerSentence(
 
   return sentences.map((s, idx) => {
     const flags: string[] = [];
-    const lower = s.toLowerCase();
+    const lower = foldCase(s, lang).replace(/[\u2019\u02BC]/g, "'");
     for (const p of phraseSet) {
-      if (lower.includes(p)) {
+      // Boundary-checked like aiPhraseSignal, so a sentence flag never disagrees
+      // with the score that produced it.
+      const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`(?:^|[^\\p{L}])${escaped}(?:[^\\p{L}]|$)`, "u").test(lower)) {
         flags.push("ai_phrase");
         break;
       }
@@ -560,6 +697,10 @@ export async function aiDetectScore(text: string, opts: AiDetectOptions = {}): P
   const paragraphs = splitParagraphs(text);
   const words = splitWords(text);
 
+  // Punctuation with no words carries no style to judge; scoring it would
+  // produce a verdict about nothing.
+  const scoreable = words.length > 0;
+
   const burstiness = burstinessSignal(sentences);
   const ai_phrases = aiPhraseSignal(text, lang, sentences.length);
   const fragment_lists = fragmentListSignal(paragraphs, lang);
@@ -578,6 +719,19 @@ export async function aiDetectScore(text: string, opts: AiDetectOptions = {}): P
       not_x_but_y.score * w.not_x_but_y) / total;
 
   const reasons: Reason[] = [];
+  if (!scoreable) {
+    return {
+      language: lang,
+      heuristic_score: 0,
+      composite_score: 0,
+      verdict: "likely_human",
+      signals: { burstiness, ai_phrases, fragment_lists, parallel_structure, em_dash, not_x_but_y },
+      reasons,
+      per_sentence: [],
+      summary_advice: [],
+      stats: { sentences: sentences.length, paragraphs: paragraphs.length, words: 0 },
+    };
+  }
   if (burstiness.reason) reasons.push(burstiness.reason);
   if (ai_phrases.reason) reasons.push(ai_phrases.reason);
   if (fragment_lists.reason) reasons.push(fragment_lists.reason);

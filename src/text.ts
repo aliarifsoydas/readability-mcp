@@ -1,7 +1,12 @@
 export type SupportedLanguage = "en" | "tr" | "es" | "de" | "fr" | "it" | "ru";
 
-const SENTENCE_SPLIT = /[.!?…]+(?:\s+|$)|[\n\r]+/u;
-const WORD_SPLIT = /[\p{L}\p{M}\p{N}'’\-]+/gu;
+// Closing quotes and brackets sit between the terminator and the space, so
+// without them `He said "hello." Then he left.` reads as a single sentence.
+const SENTENCE_SPLIT = /[.!?…]+["'’»”)\]]*(?:\s+|$)|[\n\r]+/u;
+// A token must contain a letter or digit; apostrophes and hyphens may only
+// join them. Otherwise a markdown bullet's leading `-` counts as a word,
+// which inflates word counts and makes every bullet share a first token.
+const WORD_SPLIT = /[\p{L}\p{M}\p{N}]+(?:['’\-][\p{L}\p{M}\p{N}]+)*/gu;
 
 export function splitSentences(text: string): string[] {
   return text
@@ -12,6 +17,16 @@ export function splitSentences(text: string): string[] {
 
 export function splitWords(text: string): string[] {
   return text.match(WORD_SPLIT) ?? [];
+}
+
+/**
+ * Turkish needs locale-aware folding. JS invariant lowercasing maps "İ" to "i"
+ * plus a combining dot (U+0307) and "I" to "i" rather than "ı", so a
+ * sentence-initial "İfade" or an all-caps "GELMİŞTİR" never matches a lexicon
+ * entry spelled the ordinary way.
+ */
+export function foldCase(text: string, lang: SupportedLanguage): string {
+  return lang === "tr" ? text.toLocaleLowerCase("tr") : text.toLowerCase();
 }
 
 export function letterCount(words: string[]): number {

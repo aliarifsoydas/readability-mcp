@@ -1,4 +1,4 @@
-import { splitSentences, splitWords, type SupportedLanguage } from "./text.js";
+import { splitSentences, splitWords, foldCase, type SupportedLanguage } from "./text.js";
 import { detectLanguage } from "./scorers/index.js";
 
 const CONNECTIVES: Record<SupportedLanguage, Set<string>> = {
@@ -109,8 +109,8 @@ function rhythmScore(text: string): { score: number; coefficient_of_variation: n
   };
 }
 
-function lexicalDiversityScore(text: string): { score: number; mattr: number; window_size: number } {
-  const tokens = splitWords(text).map((w) => w.toLowerCase());
+function lexicalDiversityScore(text: string, lang: SupportedLanguage): { score: number; mattr: number; window_size: number } {
+  const tokens = splitWords(text).map((w) => foldCase(w, lang));
   const window = 50;
   if (tokens.length === 0) return { score: 0, mattr: 0, window_size: window };
   if (tokens.length <= window) {
@@ -140,7 +140,7 @@ function connectiveScore(text: string, lang: SupportedLanguage): {
   const list = CONNECTIVES[lang];
   const sentences = splitSentences(text);
   const sCount = sentences.length || 1;
-  const lower = text.toLowerCase();
+  const lower = foldCase(text, lang);
   let total = 0;
   for (const phrase of list) {
     const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -192,7 +192,7 @@ function interpret(score: number, lang: SupportedLanguage): string {
 export function flowScore(text: string, language: SupportedLanguage | "auto" = "auto"): FlowResult {
   const lang = language === "auto" ? detectLanguage(text) : language;
   const r = rhythmScore(text);
-  const ld = lexicalDiversityScore(text);
+  const ld = lexicalDiversityScore(text, lang);
   const c = connectiveScore(text, lang);
   const overall = Math.round(((r.score + ld.score + c.score) / 3) * 100) / 100;
   return {

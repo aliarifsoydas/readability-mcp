@@ -20,8 +20,9 @@ jobs:
       - run: npm test
 
   benchmark:
-    # Downloads the Russian Readability Corpus from kpfu.ru, so it can fail for
-    # reasons that have nothing to do with the code. Kept separate from `test`.
+    # Downloads the Russian Readability Corpus from kpfu.ru and BAREC from
+    # HuggingFace, so these can fail for reasons that have nothing to do with the
+    # code. Kept separate from `test`.
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

@@ -88,6 +88,26 @@ const TULDAVA: readonly Anchor[] = [
   [1.6, 100], [2.314, 90], [2.754, 80], [2.933, 70], [3.17, 60], [3.354, 50], [3.498, 40], [3.597, 30], [3.9, 22], [4.4, 15], [5.1, 9], [6, 4], [7.5, 0],
 ];
 
+/**
+ * Arabic curves are fitted by running this scorer over the BAREC corpus
+ * (Balanced Arabic Readability Evaluation Corpus, 1330 documents from the train
+ * split) so that each of its 19 levels lands on a fixed normalized value:
+ * level 6 -> 75 down to level 14 -> 35, five points per level.
+ *
+ * The target is the mean sentence level of a document, i.e. its average
+ * difficulty, which is what every formula in this project measures. BAREC's own
+ * document label is the level of its single hardest sentence — a different
+ * question that a surface average cannot answer (rho 0.51 against it, versus
+ * 0.78 against average difficulty). Re-fit with `npm run benchmark:ar`.
+ */
+const AWL_ASL_INDEX: readonly Anchor[] = [
+  [1.2, 100], [1.7, 90], [2.156, 75], [2.756, 70], [3.107, 65], [3.586, 60], [4.472, 55], [4.964, 50], [5.536, 45], [5.91, 40], [6.26, 35], [7.5, 25], [9, 15], [11, 5], [14, 0],
+];
+
+const ARABIC_ARI: readonly Anchor[] = [
+  [-6, 100], [-3, 90], [-0.12, 75], [0.99, 70], [1.13, 65], [2.59, 60], [4.69, 55], [6.39, 50], [8.66, 45], [10.32, 40], [12.22, 35], [16, 25], [21, 15], [28, 5], [36, 0],
+];
+
 const ANCHOR_MAP: Record<string, readonly Anchor[]> = {
   flesch_reading_ease: IDENTITY,
   flesch_kincaid_grade: FK_GRADE,
@@ -109,6 +129,9 @@ const ANCHOR_MAP: Record<string, readonly Anchor[]> = {
   kandel_moles: IDENTITY,
 
   gulpease: IDENTITY,
+
+  awl_asl_index: AWL_ASL_INDEX,
+  arabic_ari: ARABIC_ARI,
 
   oborneva: OBORNEVA,
   matskovskiy: MATSKOVSKIY,

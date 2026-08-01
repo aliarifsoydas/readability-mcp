@@ -10,8 +10,11 @@
     "build:test": "tsc -p tsconfig.test.json",
     "pretest": "npm run build:test",
     "test": "node --test test/*.test.mjs",
-    "prebenchmark": "npm run build:test",
-    "benchmark": "node benchmark/ru-corpus.mjs"
+    "benchmark:ar": "node benchmark/ar-corpus.mjs",
+    "benchmark:ru": "node benchmark/ru-corpus.mjs",
+    "benchmark": "npm run benchmark:ru && npm run benchmark:ar",
+    "prebenchmark:ar": "npm run build:test",
+    "prebenchmark:ru": "npm run build:test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

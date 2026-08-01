@@ -21,6 +21,8 @@ export const SUPPORTED_FORMULAS = [
   "oborneva",
   "matskovskiy",
   "tuldava",
+  "awl_asl_index",
+  "arabic_ari",
 ] as const;
 
 export type Formula = (typeof SUPPORTED_FORMULAS)[number];
@@ -33,6 +35,7 @@ const DEFAULT_FORMULA: Record<SupportedLanguage, Formula> = {
   fr: "kandel_moles",
   it: "gulpease",
   ru: "oborneva",
+  ar: "awl_asl_index",
 };
 
 interface VerdictBundle {
@@ -99,6 +102,24 @@ const MESSAGES: Record<SupportedLanguage, VerdictBundle> = {
         "Чередуйте короткие и длинные предложения — избегайте монотонного ритма",
         "Добавьте связки: «однако», «поэтому», «с другой стороны», «кроме того»",
         "Сократите повторы одного слова; используйте синонимы",
+      ],
+    },
+  },
+  ar: {
+    ready: "جاهز للنشر من ناحية تحسين محركات البحث",
+    simplify: "المقروئية منخفضة: اختصر الجمل وبسّط الكلمات الطويلة",
+    improveFlow: "الترابط ضعيف: نوّع أطوال الجمل وأضف أدوات ربط",
+    revise: "يحتاج إلى مراجعة شاملة — المقروئية والترابط كلاهما ضعيف",
+    suggestions: {
+      simplify: [
+        "أبقِ متوسط طول الجملة تحت خمس عشرة كلمة",
+        "استبدل الكلمات الطويلة بمرادفات أقصر",
+        "قسّم الجملة إلى جملتين إذا حملت فكرتين مستقلتين",
+      ],
+      improveFlow: [
+        "تناوب بين الجمل القصيرة والطويلة لتجنب الرتابة",
+        "أضف أدوات ربط: «لكن»، «لذلك»، «من ناحية أخرى»، «بالإضافة إلى ذلك»",
+        "قلّل تكرار الكلمة نفسها واستخدم المرادفات",
       ],
     },
   },

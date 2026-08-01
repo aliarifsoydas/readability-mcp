@@ -257,6 +257,7 @@ export function renderUiHtml(): string {
             <option value="fr">Français</option>
             <option value="it">Italiano</option>
             <option value="ru">Русский</option>
+            <option value="ar">العربية</option>
           </select>
         </label>
       </div>

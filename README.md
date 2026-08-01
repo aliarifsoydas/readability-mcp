@@ -13,8 +13,9 @@ A Model Context Protocol (MCP) server that scores text readability in multiple l
 | French (`fr`) | Kandel-Moles |
 | Italian (`it`) | Gulpease |
 | Russian (`ru`) | Оборнева (Oborneva), Мацковский (Matskovskiy), Тулдава (Tuldava) |
+| Arabic (`ar`) | AWL-ASL index, Arabic ARI |
 
-Set `language: "auto"` (default) for detection: Cyrillic text is resolved by script, Latin-script text by stopword frequency and diacritics.
+Set `language: "auto"` (default) for detection: Arabic and Cyrillic text is resolved by script, Latin-script text by stopword frequency and diacritics.
 
 ## Tools
 
@@ -50,8 +51,10 @@ All scoring tools return scores **normalized to 0-100** where higher = easier / 
 ## Tests and benchmark
 
 ```bash
-npm test         # unit + regression suite (no network)
-npm run benchmark # validate Russian scoring against a real grade-labelled corpus
+npm test              # unit + regression suite (no network)
+npm run benchmark     # both corpus benchmarks
+npm run benchmark:ru  # Russian, against grade 5-11 textbooks
+npm run benchmark:ar  # Arabic, against BAREC's 19 annotated levels
 ```
 
 `npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, first-class-language parity (judge prompt, UI bundle, lexicon sizes), the antithesis patterns, documentation drift, and degenerate input (empty strings, punctuation, emoji) across every language.
@@ -63,7 +66,26 @@ npm run benchmark # validate Russian scoring against a real grade-labelled corpu
 3. **Grade bands** — grade 5 must land near 90 and grade 11 near 30; every grade is currently within 2 points of its target.
 4. **Calibration data** — prints the mean raw value per grade, which is the input for re-fitting the curves in `normalize.ts` if the tokenizer ever changes.
 
-The benchmark depends on an external download, so CI runs it as an advisory job; the calibration itself is pinned in the unit suite so a regression fails `npm test` regardless.
+`npm run benchmark:ar` does the same against **BAREC** (Balanced Arabic Readability Evaluation Corpus, ACL Findings 2025) — 69k sentences hand-annotated on a 19-level scale. Current: **ρ = 0.77** for the AWL-ASL index against a document's average sentence level, every level band within 5 points of its target.
+
+Both benchmarks depend on an external download, so CI runs them as advisory jobs; the calibration itself is pinned in the unit suite so a regression fails `npm test` regardless.
+
+### Why Arabic ships only two formulas
+
+Arabic is written without short vowels, so its syllables are not recoverable from the text and every formula built on counting them collapses. Measured on BAREC:
+
+| formula | ρ | |
+|---|---|---|
+| OSMAN | **+0.05** | its complex-word term needs four diacritics per word and is exactly 0 in most documents |
+| Arabic Flesch | +0.16 | syllables per word |
+| Arabic Kincaid | −0.11 | syllables per word |
+| Arabic LIX | +0.66 | usable, but its level anchors are not monotone |
+| Arabic ARI | +0.76 | characters per word — no syllables needed |
+| AWL × lg(ASL) | **+0.78** | shipped as the default |
+
+For reference, `textstat` — the usual off-the-shelf choice — scores −0.54 on the same data, and only because its syllable counter is inert on Arabic, which degenerates Flesch into a sentence-length proxy. OSMAN and the two syllable-based formulas are deliberately absent rather than carried for the sake of citing them.
+
+Two limitations worth stating. The scorer measures **average** difficulty; BAREC's own document label is the level of a document's single hardest sentence, which a surface average cannot predict (ρ 0.62 against that target versus 0.77 against average difficulty). And **fragment detection is disabled for Arabic**: the nominal sentence carries no verb and is a complete, very common construction — *العلم نور* is a full sentence — so a determiner-keyed rule flags 7.8% of ordinary short sentences, about half of them grammatical. The same call was made for Turkish, for the same reason.
 
 ## Browse the tool catalog
 
@@ -146,6 +168,7 @@ Without the secret, `ai_score` returns heuristic-only results. With it, the tool
 - Public, unauthenticated by default. Add `workers-oauth-provider` if you need auth.
 - `score_url` uses Workers' native `HTMLRewriter` for content extraction — no DOM polyfill, zero extra deps.
 - Syllable counting uses language-specific vowel patterns; English uses an additional consonant-cluster heuristic.
+- Arabic normalization strips the optional diacritics and unifies the interchangeable letter shapes before anything is counted. This is load-bearing, not cosmetic: the same sentence written with full tashkeel has about twice the characters of its plain form, which would double every character-based measurement.
 - Russian coefficients come from Ivanov, Solnyshkina & Solovyev, *Efficiency of Text Readability Features in Russian Academic Texts* (Dialogue 2018), §2. Their raw scales are not Flesch scales — Oborneva scores a 5th grade textbook around +43 and an 11th grade one around −12 on this tokenizer — so the 0-100 normalization is fitted to that paper's grade-level corpus rather than to the English bands. See `npm run benchmark`.
 - Two heuristics are language-aware for Russian specifically: the em-dash signal in `ai_score` is scored far more leniently, because the dash is a grammatical copula there (*Москва — столица России*), and the sentence-fragment check accepts verbless predicates, because Russian drops the present-tense copula (*Он врач.* is a complete sentence).
 - The Russian fragment check keys on the missing predicate rather than on a determiner, because Russian has no articles and its LLM bullet fragments are bare noun phrases (*Экономия времени.*) that no suffix list covers. Two collisions had to be handled: the `-ость` noun suffix ends in `ть` exactly like an infinitive, and abbreviations (*лезг.*, *совр.*) make the sentence splitter cut mid-clause, so fragment candidates must start with a capital.

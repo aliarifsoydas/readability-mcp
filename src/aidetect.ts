@@ -76,6 +76,22 @@ const AI_PHRASES: Record<SupportedLanguage, string[]> = {
     "индивидуальный подход", "высококвалифицированные специалисты",
     "оптимальное решение", "грамотный подход",
   ],
+  ar: [
+    "في عالم اليوم", "في عصرنا الحالي", "في ظل التطور التكنولوجي",
+    "في عالم يتغير باستمرار", "لا يخفى على أحد",
+    "من الجدير بالذكر", "تجدر الإشارة إلى", "من المهم أن نلاحظ",
+    "يلعب دورا حاسما", "يلعب دورا محوريا", "يلعب دورا مهما",
+    "يشكل جزءا لا يتجزأ", "جزءا لا يتجزأ",
+    "يفتح آفاقا جديدة", "يتيح فرصا جديدة",
+    "مجموعة واسعة من", "العديد من المزايا", "عنصرا أساسيا",
+    "نهج شامل", "تحليل شامل", "متعدد الأوجه",
+    "في نهاية المطاف", "وفي الختام", "وخلاصة القول", "ومما سبق يتضح",
+    "دعونا نستعرض", "سنتناول في هذا المقال", "في هذا المقال", "في هذا الدليل",
+    "يتطور بسرعة", "يتغير بوتيرة متسارعة",
+    "بشكل فعال وكفء", "مستوى جديد من الجودة",
+    "حلا مثاليا", "الخيار الأمثل", "يوفر الوقت والجهد",
+    "لا يمكن الاستغناء عنه", "أصبح ضرورة ملحة",
+  ],
   es: [],
   de: [],
   fr: [],
@@ -110,6 +126,16 @@ const FRAGMENT_STARTERS: Record<SupportedLanguage, RegExp> = {
   // `\b` is ASCII-only in JS and never fires between Cyrillic letters, so the
   // lookaheads below are the working equivalent.
   ru: /^(?!(?:[Оо]н|[Оо]на|[Оо]но|[Оо]ни|[Яя]|[Тт]ы|[Мм]ы|[Вв]ы)(?![\p{L}]))\p{Lu}/u,
+  // Fragment detection is switched off for Arabic. The nominal sentence
+  // (الجملة اسمية) carries no verb and is a complete, extremely common
+  // construction — "العلم نور" is a full sentence, not a fragment. Measured on
+  // BAREC, a determiner-keyed rule flags 7.8% of ordinary 3-8 word sentences,
+  // and about half of those are grammatical nominal sentences rather than real
+  // fragments ("هذا خطر على صحتكم"). Telling a writer that a correct Arabic
+  // sentence reads as machine-written is worse than missing a bullet list, so
+  // this signal stays silent until there is a real predicate detector for
+  // Arabic. The same call was made for Turkish for the same reason.
+  ar: /(?!)/u,
 };
 
 const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
@@ -130,6 +156,10 @@ const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
   // and backtracks, and matching goes quadratic — a 64 KB word of Cyrillic took
   // 52 seconds, which is an easy way to burn a Worker's CPU budget.
   ru: /(?:^|[^\p{L}])(?:был|была|было|были|будет|будут|буду|есть|нет|можно|нужно|надо|важно|нельзя|необходимо|очевидно|понятно|ясно|должен|должна|должно|должны|может|могут)(?![\p{L}])|(?<![\p{L}])[\p{L}]{2,}(?:ет|ёт|ит|ут|ют|ат|ят|ем|ём|им|ешь|ёшь|ишь|ете|ите|[аеиоуыя]л[аои]?|ться|тся|[аяеиыу]ть|ся|сь)(?![\p{L}])|\s—\s/iu,
+  // Arabic marks the imperfect with a ي/ت/ن/أ prefix and has a closed set of
+  // copular and existential verbs. Nominal sentences carry no verb at all, so
+  // the predicative particles count as a predicate too.
+  ar: /(?<![\p{L}])(?:كان|كانت|يكون|تكون|ليس|ليست|أصبح|أصبحت|صار|يوجد|توجد|هناك|لدى|لديه|لديها|يجب|ينبغي|يمكن|لا بد)(?![\p{L}])|(?<![\p{L}])[يتنأ]\p{L}{2,}(?![\p{L}])/u,
 };
 
 function splitParagraphs(text: string): string[] {
@@ -392,6 +422,7 @@ const EM_DASH_LIMITS: Record<SupportedLanguage, { flagAt: number; scale: number 
   fr: { flagAt: 0.1, scale: 200 },
   it: { flagAt: 0.1, scale: 200 },
   ru: { flagAt: 0.5, scale: 60 },
+  ar: { flagAt: 0.1, scale: 200 },
 };
 
 function emDashSignal(text: string, sentenceCount: number, lang: SupportedLanguage): EmDashSignal {
@@ -447,6 +478,7 @@ const NEGATION_TOKEN: Record<SupportedLanguage, RegExp> = {
   de: /(?<![\p{L}])nicht(?![\p{L}])/giu,
   fr: /(?<![\p{L}])(?:ne|non)(?![\p{L}])/giu,
   it: /(?<![\p{L}])non(?![\p{L}])/giu,
+  ar: /(?<![\p{L}])(?:ليس|ليست|لا|لم|لن|ما|غير)(?![\p{L}])/giu,
 };
 
 const NOT_X_BUT_Y: Record<SupportedLanguage, RegExp[]> = {
@@ -507,6 +539,16 @@ const NOT_X_BUT_Y: Record<SupportedLanguage, RegExp[]> = {
   it: [
     new RegExp(String.raw`(?<![\p{L}])non\s+solo(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])ma(?:\s+anche)?(?![\p{L}])`, "giu"),
     new RegExp(String.raw`(?<![\p{L}])non(?![\p{L}])${GAP}{1,50}?(?<![\p{L}])ma(?:\s+anche)?(?![\p{L}])`, "giu"),
+  ],
+  ar: [
+    // multi-item: "لا هذا، ولا ذاك، ولا تلك — بل ..."
+    new RegExp(String.raw`(?<![\p{L}])(?:لا|ليس)(?![\p{L}])${GAP}{1,50}?[،,]\s*(?:ولا|و لا)(?![\p{L}])${GAP}{1,70}?(?<![\p{L}])بل(?![\p{L}])`, "gu"),
+    // "ليس فقط ... بل أيضا"
+    new RegExp(String.raw`(?<![\p{L}])ليس\s+فقط(?![\p{L}])${GAP}{1,60}?(?<![\p{L}])بل(?:\s+أيضا)?(?![\p{L}])`, "gu"),
+    // the workhorse "ليس X بل Y" / "لا X بل Y"
+    new RegExp(String.raw`(?<![\p{L}])(?:ليس|ليست|لا)(?![\p{L}])${GAP}{1,55}?(?<![\p{L}])بل(?![\p{L}])`, "gu"),
+    // "X وإنما Y"
+    new RegExp(String.raw`(?<![\p{L}])(?:ليس|ليست|لا|لم)(?![\p{L}])${GAP}{1,55}?(?<![\p{L}])وإنما(?![\p{L}])`, "gu"),
   ],
 };
 
@@ -606,6 +648,14 @@ const ADVICE: Record<SupportedLanguage, Partial<Record<string, string>>> = {
     parallel_structure_run: "Разбейте цепочку одинаково построенных предложений: вставьте предложение другой длины или с другим началом.",
     em_dash_overuse: "Сократите число длинных тире (—); замените их запятыми, скобками или двумя отдельными предложениями.",
     not_x_but_y_pattern: "Сократите конструкции «не только X, но и Y»; замените их естественными формулировками.",
+  },
+  ar: {
+    low_burstiness: "نوّع أطوال الجمل: امزج جملًا قصيرة من ثلاث إلى ست كلمات بأخرى طويلة من ثماني عشرة إلى خمس وعشرين كلمة.",
+    ai_phrase_cluster: "احذف أو استبدل العبارات النمطية المتكررة التي رصدها التحليل (انظر evidence.top).",
+    fragment_list_paragraph: "أعد صياغة الفقرة المكوّنة من شظايا متتالية كجملة مترابطة، أو حوّلها إلى قائمة نقطية حقيقية.",
+    parallel_structure_run: "اكسر سلسلة الجمل المتطابقة البنية بإدخال جملة مختلفة الطول أو البداية.",
+    em_dash_overuse: "قلّل استخدام الشرطة الطويلة (—) واستبدلها بفواصل أو أقواس أو جملتين منفصلتين.",
+    not_x_but_y_pattern: "قلّل صيغة «ليس X بل Y» واستبدلها بصياغة طبيعية.",
   },
   es: {}, de: {}, fr: {}, it: {},
 };

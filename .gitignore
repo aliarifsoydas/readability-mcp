@@ -7,5 +7,6 @@ node_modules/
 dist/
 .test-build/
 benchmark/corpus/
+benchmark/corpus-ar/
 .DS_Store
 *.log

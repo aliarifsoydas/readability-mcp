@@ -83,7 +83,7 @@ const REASON = {
 
 const SIGNAL_BASE = { score: NUM, reason: REASON } as const;
 
-const LANGUAGE_ENUM = ["en", "tr", "es", "de", "fr", "it", "ru"];
+const LANGUAGE_ENUM = ["en", "tr", "es", "de", "fr", "it", "ru", "ar"];
 
 export const TOOLS: ToolDoc[] = [
   {
@@ -93,7 +93,7 @@ export const TOOLS: ToolDoc[] = [
       "Runs the language's standard readability formulas (Flesch for EN, Ateşman for TR, etc) and returns both raw values and a 0-100 normalized score where higher = easier to read.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru", "ar"] },
     ],
     output_summary: "{ language, interpretation, metrics, metrics_100, overall_100, stats }",
     output_schema: {
@@ -118,7 +118,7 @@ export const TOOLS: ToolDoc[] = [
       "Uses Cloudflare Workers' native HTMLRewriter to extract main text from the page (no headless browser, no DOM polyfill), then runs `score_text` on the extracted content. Returns the same shape as `score_text` plus url/title/text_preview.",
     params: [
       { name: "url", type: "string", required: true, description: "Webpage to fetch." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru", "ar"] },
     ],
     output_summary: "{ url, title, text_preview, language, metrics, metrics_100, overall_100, stats }",
     output_schema: {
@@ -146,7 +146,7 @@ export const TOOLS: ToolDoc[] = [
       "Independent of formula-based readability. Measures: (a) rhythm — coefficient of variation of sentence lengths (low=monotone, very high=erratic, ~0.5 optimal), (b) lexical diversity — moving-average type-token ratio over a 50-token window, (c) connective density — discourse-marker hits per sentence. Returns each on 0-100 plus an overall.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru", "ar"] },
     ],
     output_summary: "{ language, overall_100, metrics_100: { rhythm, lexical_diversity, connective_density }, details, interpretation }",
     output_schema: {
@@ -170,7 +170,7 @@ export const TOOLS: ToolDoc[] = [
       "Picks one readability formula (default per language) and combines it with `flow_score` using configurable weights. Returns a `passed` boolean against a threshold and concrete localized suggestions (EN/TR/RU bundles fully populated; ES/DE/FR/IT have basic bundles).",
     params: [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
-      { name: "formula", type: "string", required: false, description: "Override readability formula. Defaults: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT), Oborneva (RU). A formula the language does not provide is rejected with the list of the ones it does." },
+      { name: "formula", type: "string", required: false, description: "Override readability formula. Defaults: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT), Oborneva (RU), AWL-ASL index (AR). A formula the language does not provide is rejected with the list of the ones it does." },
       { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto" },
       { name: "threshold", type: "number", required: false, description: "Pass threshold on the 0-100 scale.", default: "70" },
       { name: "weight_readability", type: "number", required: false, description: "Weight of readability vs flow in overall score (0-1).", default: "0.5" },
@@ -204,12 +204,12 @@ export const TOOLS: ToolDoc[] = [
     name: "ai_score",
     summary: "AI-likeness score with explainable reasons + optional LLM judge panel.",
     description:
-      "Six heuristic signals always run inside the Worker (free, ms-fast): burstiness, AI-tell phrases (EN/TR/RU lexicons), fragment-list paragraphs, parallel structure runs, em-dash overuse, and \"not X but Y\" patterns including multi-item runs. Each signal returns a `reason` with severity, explanation, evidence and location. Several signals are language-aware: the dash is scored leniently for Russian because it is a grammatical copula there, the Russian fragment check accepts verbless predicates, and Turkish case folding is locale-aware. The optional LLM panel adds 3 frontier models in parallel via OpenRouter, judging in EN, TR or RU with a prompt written for that language, surfacing consensus reasons (codes flagged by ≥2 judges) with quoted evidence. Composite blends heuristic and LLM scores; verdict escalates by max signal severity so a single high-severity finding isn't drowned out.",
+      "Six heuristic signals always run inside the Worker (free, ms-fast): burstiness, AI-tell phrases (EN/TR/RU/AR lexicons), fragment-list paragraphs, parallel structure runs, em-dash overuse, and \"not X but Y\" patterns including multi-item runs. Each signal returns a `reason` with severity, explanation, evidence and location. Several signals are language-aware: the dash is scored leniently for Russian because it is a grammatical copula there, the Russian fragment check accepts verbless predicates, and Turkish case folding is locale-aware. The optional LLM panel adds 3 frontier models in parallel via OpenRouter, judging in EN, TR, RU or AR with a prompt written for that language, surfacing consensus reasons (codes flagged by ≥2 judges) with quoted evidence. Composite blends heuristic and LLM scores; verdict escalates by max signal severity so a single high-severity finding isn't drowned out.",
     cost:
       "tier=heuristic → $0 / ~5ms · tier=cheap → ~$0.012 / ~10s · tier=premium → ~$0.066 / ~25s. LLM tiers require OPENROUTER_API_KEY secret. Output includes total_cost_usd per panel call.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to score." },
-      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
+      { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru", "ar"] },
       { name: "tier", type: "string", required: false, description: "Scoring tier.", default: "heuristic", enum: ["heuristic", "cheap", "premium"] },
       { name: "models", type: "string[]", required: false, description: "Override the panel with custom OpenRouter model IDs. Implies LLM use; ignores `tier` if non-empty." },
       { name: "llm_weight", type: "number", required: false, description: "Weight of LLM panel score vs heuristic in composite_score (0-1).", default: "0.6" },
@@ -336,9 +336,9 @@ export const TOOLS: ToolDoc[] = [
   {
     name: "detect_language",
     summary: "Detect the language of a given text.",
-    description: "Script check for Cyrillic, then a stopword-frequency + diacritic heuristic across the Latin-script languages. Fast, deterministic, no external calls.",
+    description: "Script check for Arabic and Cyrillic, then a stopword-frequency + diacritic heuristic across the Latin-script languages. Fast, deterministic, no external calls.",
     params: [{ name: "text", type: "string", required: true, description: "Text to detect language of." }],
-    output_summary: "{ language: 'en' | 'tr' | 'es' | 'de' | 'fr' | 'it' | 'ru' }",
+    output_summary: "{ language: 'en' | 'tr' | 'es' | 'de' | 'fr' | 'it' | 'ru' | 'ar' }",
     output_schema: {
       type: "object",
       properties: { language: { type: "string", enum: LANGUAGE_ENUM } },
@@ -367,7 +367,7 @@ export const TOOLS: ToolDoc[] = [
       required: ["languages", "metrics_by_language", "flow_metrics"],
     },
     example_request: {},
-    example_response_excerpt: { languages: ["en", "tr", "es", "de", "fr", "it", "ru"], flow_metrics: ["rhythm", "lexical_diversity", "connective_density"] },
+    example_response_excerpt: { languages: ["en", "tr", "es", "de", "fr", "it", "ru", "ar"], flow_metrics: ["rhythm", "lexical_diversity", "connective_density"] },
   },
 ];
 

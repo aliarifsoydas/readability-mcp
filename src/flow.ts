@@ -2,6 +2,16 @@ import { splitSentences, splitWords, foldCase, type SupportedLanguage } from "./
 import { detectLanguage } from "./scorers/index.js";
 
 const CONNECTIVES: Record<SupportedLanguage, Set<string>> = {
+  ar: new Set([
+    "لكن", "لكن", "غير أن", "إلا أن", "بيد أن", "في حين", "بينما",
+    "كذلك", "أيضا", "أيضًا", "بالإضافة إلى ذلك", "علاوة على ذلك", "فضلا عن ذلك",
+    "لذلك", "لذا", "وبالتالي", "من ثم", "نتيجة لذلك", "إذن",
+    "لأن", "بسبب", "نظرا ل", "حيث أن",
+    "ثم", "بعد ذلك", "أولا", "ثانيا", "أخيرا", "في النهاية", "في الوقت نفسه",
+    "من ناحية أخرى", "على العكس", "على الرغم من", "مع ذلك", "رغم ذلك",
+    "على سبيل المثال", "مثلا", "أي", "بعبارة أخرى", "باختصار", "بشكل عام",
+    "و", "أو", "ف",
+  ]),
   ru: new Set([
     "однако", "но", "зато", "хотя", "тогда как", "в то время как",
     "кроме того", "более того", "также", "к тому же", "вдобавок", "притом",
@@ -181,6 +191,7 @@ function interpret(score: number, lang: SupportedLanguage): string {
     fr: ["Très fluide", "Fluide", "Débit modéré", "Saccadé"],
     it: ["Molto fluido", "Fluido", "Flusso moderato", "Spezzato"],
     ru: ["Очень плавно", "Плавно", "Умеренная плавность", "Рвано"],
+    ar: ["سلس جدًا", "سلس", "انسيابية متوسطة", "متقطع"],
   };
   const [a, b, c, d] = lib[lang];
   if (score >= 80) return a;

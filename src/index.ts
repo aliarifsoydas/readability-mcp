@@ -24,7 +24,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         text: z.string().min(1).describe("The text to analyze."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, ar, or 'auto' (default).",
         ),
       },
       async ({ text, language }) => {
@@ -40,7 +40,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         url: z.string().url().describe("The URL of a webpage to fetch and score."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, ar, or 'auto' (default).",
         ),
       },
       async ({ url, language }) => {
@@ -79,7 +79,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         text: z.string().min(1).describe("The text to analyze for natural flow."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, ar, or 'auto' (default).",
         ),
       },
       async ({ text, language }) => {
@@ -98,10 +98,10 @@ export class ReadabilityMCP extends McpAgent {
           .enum(SUPPORTED_FORMULAS as unknown as [string, ...string[]])
           .optional()
           .describe(
-            "Single readability formula to use. Must be one of the formulas the language provides, otherwise the call fails with the list of the ones it does. If omitted, uses the language default: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT), Oborneva (RU).",
+            "Single readability formula to use. Must be one of the formulas the language provides, otherwise the call fails with the list of the ones it does. If omitted, uses the language default: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT), Oborneva (RU), AWL-ASL index (AR).",
           ),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, ar, or 'auto' (default).",
         ),
         threshold: z
           .number()
@@ -152,7 +152,7 @@ export class ReadabilityMCP extends McpAgent {
       {
         text: z.string().min(1).describe("The text to score for AI-likeness."),
         language: LANG_ENUM.optional().describe(
-          "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",
+          "Language code: en, tr, es, de, fr, it, ru, ar, or 'auto' (default).",
         ),
         tier: z
           .enum(["heuristic", "cheap", "premium"])
@@ -225,6 +225,7 @@ export class ReadabilityMCP extends McpAgent {
                   fr: ["kandel_moles"],
                   it: ["gulpease"],
                   ru: ["oborneva", "matskovskiy", "tuldava"],
+                  ar: ["awl_asl_index", "arabic_ari"],
                 },
                 flow_metrics: ["rhythm", "lexical_diversity", "connective_density"],
                 note: "All scores including readability are normalized to 0-100 (higher = easier/more fluent). Each scoring tool returns both raw 'metrics' and 'metrics_100', plus an 'overall_100' average.",

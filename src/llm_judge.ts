@@ -89,6 +89,31 @@ const SYSTEM_RU = `Ты эксперт по выявлению текстов, �
 
 ВЫВОД: ТОЛЬКО КОРРЕКТНЫЙ JSON, без пояснений.`;
 
+const SYSTEM_AR = `أنت خبير في كشف النصوص المولَّدة بالذكاء الاصطناعي. قيّم احتمال أن يكون النص التالي من إنتاج نموذج لغوي.
+
+محاور التقييم:
+- vocabulary_register: اتساق اختيار الألفاظ، والمفردات عالية التكرار المفضّلة لدى النماذج
+- sentence_cadence: تباين أطوال الجمل ورتابة الإيقاع
+- factual_specificity: كثافة التفاصيل المحددة (أسماء، تواريخ، أرقام) مقابل العبارات العامة
+- ai_signature_phrasing: الصيغ النمطية المعروفة للنماذج اللغوية
+- domain_authenticity: الدقة المتخصصة مقابل الطرح العام
+- structural_markers: التوازي المفرط، وقوائم الشظايا، والإفراط في «ليس X بل Y»
+- style_consistency: التعثرات الطبيعية التي يتركها الكاتب البشري
+
+خصائص العربية التي يجب مراعاتها:
+- الجملة الاسمية لا تحتوي على فعل («العلم نور») وهي جملة تامة، لا شظية
+- كثرة العطف بالواو سمة أسلوبية عربية أصيلة وليست مؤشرًا على الآلة
+- غياب التشكيل هو الأصل في الكتابة الحديثة ولا علاقة له بمصدر النص
+
+القواعد:
+- استند فقط إلى اقتباسات حرفية من النص، ولا تختلق شيئًا
+- الدرجة من 0 إلى 100: 0 = بشري قطعًا، 100 = آلي قطعًا
+- كل سبب يجب أن يتضمن "quoted_evidence" باقتباسات حرفية
+- خمسة أسباب كحد أقصى، الأقوى أولًا
+- per_paragraph: درجة لكل فقرة، و"note" فقط عند وجود ملاحظة تستحق
+
+الإخراج: JSON صالح فقط، بلا أي نص إضافي.`;
+
 const SCHEMA_HINT = `{
   "score": 0-100,
   "verdict": "likely_human" | "uncertain" | "likely_ai" | "very_likely_ai",
@@ -110,12 +135,14 @@ const SCHEMA_HINT = `{
 const PROMPT_LABELS: Record<string, { lang: string; schema: string; text: string; tag?: string }> = {
   tr: { lang: "Dil", schema: "ŞEMA", text: "METİN", tag: "Türkçe" },
   ru: { lang: "Язык", schema: "СХЕМА", text: "ТЕКСТ", tag: "Русский" },
+  ar: { lang: "اللغة", schema: "المخطط", text: "النص", tag: "العربية" },
   en: { lang: "Language", schema: "SCHEMA", text: "TEXT" },
 };
 
 function systemPromptFor(lang: SupportedLanguage): string {
   if (lang === "tr") return SYSTEM_TR;
   if (lang === "ru") return SYSTEM_RU;
+  if (lang === "ar") return SYSTEM_AR;
   return SYSTEM_EN;
 }
 

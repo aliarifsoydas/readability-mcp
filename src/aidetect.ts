@@ -66,6 +66,13 @@ const AI_PHRASES: Record<SupportedLanguage, string[]> = {
     "в этой статье мы", "в данной статье", "в этом руководстве",
     "стремительно развивается", "стремительно меняется",
     "эффективно и результативно", "качественно новый уровень",
+    "на сегодняшний день", "в наши дни", "мир не стоит на месте",
+    "стоит обратить внимание", "следует учитывать", "нельзя недооценивать",
+    "занимает особое место", "имеет ряд преимуществ", "целый ряд факторов",
+    "позволяет значительно", "существенно повышает", "не секрет, что",
+    "идти в ногу со временем", "залогом успеха", "ключом к успеху",
+    "индивидуальный подход", "высококвалифицированные специалисты",
+    "оптимальное решение", "грамотный подход",
   ],
   es: [],
   de: [],
@@ -80,12 +87,18 @@ const FRAGMENT_STARTERS: Record<SupportedLanguage, RegExp> = {
   de: /^(der|die|das|den|dem|ein|eine|einen|jeder|alle)\b/i,
   fr: /^(le|la|les|un|une|des|ce|cette|ces|chaque|tous)\b/i,
   it: /^(il|la|lo|gli|le|un|una|uno|questo|questa|ogni|tutti)\b/i,
-  // Russian has no articles, so demonstratives and quantifiers carry the role.
-  // The second branch catches adjective-initial sentences ("Высокое качество."),
-  // which is the shape LLM bullet fragments actually take here.
-  // `\b` is ASCII-only in JS and never fires between Cyrillic letters — the
-  // lookahead below is the working equivalent.
-  ru: /^(?:(?:этот|эта|это|эти|тот|та|те|каждый|каждая|каждое|все|весь|вся|любой|любая|некоторые|наш|наша|наши|ваш|ваша|ваши|свой|своя|данный|данная|такой|такая|такие)|[\p{L}]{3,}(?:ый|ий|ая|яя|ое|ее|ые|ие))(?![\p{L}])/iu,
+  // Russian has no articles, so the determiner test the other languages use has
+  // nothing to key on, and LLM bullet fragments here are plain noun phrases
+  // ("Экономия времени.", "Доступ к рынку.") that no suffix list covers.
+  // Any opening is therefore a candidate and SENTENCE_VERB_HINT does the work —
+  // except personal pronouns, which introduce the zero-copula sentences
+  // ("Он врач.") that must not count as fragments.
+  // The capital is load-bearing: abbreviations ("лезг.", "совр.") make the
+  // sentence splitter cut mid-clause, and the lowercase debris that produces
+  // would otherwise read as a fragment run.
+  // `\b` is ASCII-only in JS and never fires between Cyrillic letters, so the
+  // lookaheads below are the working equivalent.
+  ru: /^(?!(?:[Оо]н|[Оо]на|[Оо]но|[Оо]ни|[Яя]|[Тт]ы|[Мм]ы|[Вв]ы)(?![\p{L}]))\p{Lu}/u,
 };
 
 const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
@@ -98,7 +111,7 @@ const SENTENCE_VERB_HINT: Record<SupportedLanguage, RegExp> = {
   // Russian drops the present-tense copula ("Он врач." is a full sentence), so
   // a missing verb alone does not make a fragment. Predicatives and the dash
   // that stands in for the copula therefore count as a predicate too.
-  ru: /(?:^|[^\p{L}])(?:был|была|было|были|будет|будут|буду|есть|нет|можно|нужно|надо|важно|нельзя|необходимо|очевидно|понятно|ясно|должен|должна|должно|должны|может|могут)(?![\p{L}])|[\p{L}]{2,}(?:ет|ёт|ит|ут|ют|ат|ят|ем|ём|им|ешь|ёшь|ишь|ете|ите|[аеиоуыя]л[аои]?|ться|тся|ся|сь|ть)(?![\p{L}])|\s—\s/iu,
+  ru: /(?:^|[^\p{L}])(?:был|была|было|были|будет|будут|буду|есть|нет|можно|нужно|надо|важно|нельзя|необходимо|очевидно|понятно|ясно|должен|должна|должно|должны|может|могут)(?![\p{L}])|[\p{L}]{2,}(?:ет|ёт|ит|ут|ют|ат|ят|ем|ём|им|ешь|ёшь|ишь|ете|ите|[аеиоуыя]л[аои]?|ться|тся|[аяеиыу]ть|ся|сь)(?![\p{L}])|\s—\s/iu,
 };
 
 function splitParagraphs(text: string): string[] {

@@ -64,6 +64,31 @@ RULES:
 
 OUTPUT: VALID JSON ONLY, no extra prose.`;
 
+const SYSTEM_RU = `Ты эксперт по выявлению текстов, созданных искусственным интеллектом. Оцени вероятность того, что данный текст написан языковой моделью.
+
+КРИТЕРИИ ОЦЕНКИ:
+- vocabulary_register: единообразие лексики, характерные для LLM высокочастотные слова
+- sentence_cadence: разброс длины предложений, монотонность ритма
+- factual_specificity: плотность конкретных деталей (имена, даты, числа) против общих формулировок
+- ai_signature_phrasing: известные штампы LLM, риторические фигуры
+- domain_authenticity: предметные нюансы против обобщённого изложения
+- structural_markers: избыточный параллелизм, списки обрывков, злоупотребление «не только X, но и Y»
+- style_consistency: естественные сбои и неровности, свойственные человеку
+
+ОСОБЕННОСТИ РУССКОГО ЯЗЫКА:
+- Тире вместо связки («Москва — столица России») — норма, а не признак машинного стиля
+- Предложения без глагола («Он врач.») грамматически полны; обрывком считается только именная группа без сказуемого
+- Свободный порядок слов — сам по себе не признак
+
+ПРАВИЛА:
+- Опирайся ТОЛЬКО на цитаты из текста; ничего не выдумывай
+- Оценка 0-100: 0 = точно человек, 100 = точно ИИ
+- В каждом reason поле "quoted_evidence" должно содержать дословные цитаты из текста
+- Не более 5 reason, самые весомые первыми
+- per_paragraph: оценка по каждому абзацу, "note" только если есть что отметить
+
+ВЫВОД: ТОЛЬКО КОРРЕКТНЫЙ JSON, без пояснений.`;
+
 const SCHEMA_HINT = `{
   "score": 0-100,
   "verdict": "likely_human" | "uncertain" | "likely_ai" | "very_likely_ai",
@@ -81,11 +106,30 @@ const SCHEMA_HINT = `{
   "key_recommendations": ["<actionable rewrite hint>"]
 }`;
 
+/** Prompt labels follow whichever system prompt the language is judged with. */
+const PROMPT_LABELS: Record<string, { lang: string; schema: string; text: string; tag?: string }> = {
+  tr: { lang: "Dil", schema: "ŞEMA", text: "METİN", tag: "Türkçe" },
+  ru: { lang: "Язык", schema: "СХЕМА", text: "ТЕКСТ", tag: "Русский" },
+  en: { lang: "Language", schema: "SCHEMA", text: "TEXT" },
+};
+
+function systemPromptFor(lang: SupportedLanguage): string {
+  if (lang === "tr") return SYSTEM_TR;
+  if (lang === "ru") return SYSTEM_RU;
+  return SYSTEM_EN;
+}
+
+/** The exact pair a judge call would send. Exported so tests can assert on it. */
+export function buildJudgePrompt(text: string, lang: SupportedLanguage): { system: string; user: string } {
+  return { system: systemPromptFor(lang), user: buildUserPrompt(text, lang) };
+}
+
 function buildUserPrompt(text: string, lang: SupportedLanguage): string {
-  const langTag = lang === "tr" ? "Türkçe" : lang === "ru" ? "Русский" : lang.toUpperCase();
+  const labels = PROMPT_LABELS[lang] ?? PROMPT_LABELS.en!;
+  const langTag = labels.tag ?? lang.toUpperCase();
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p.length > 0);
   const numbered = paragraphs.map((p, i) => `[P${i}] ${p}`).join("\n\n");
-  return `Dil: ${langTag}\n\nSCHEMA:\n${SCHEMA_HINT}\n\nMETİN:\n${numbered}`;
+  return `${labels.lang}: ${langTag}\n\n${labels.schema}:\n${SCHEMA_HINT}\n\n${labels.text}:\n${numbered}`;
 }
 
 function safeJsonParse(s: string): unknown {
@@ -130,7 +174,7 @@ export async function llmJudge(
   const baseUrl = opts.baseUrl ?? DEFAULT_BASE_URL;
   const timeoutMs = opts.timeoutMs ?? 30_000;
 
-  const system = language === "tr" ? SYSTEM_TR : SYSTEM_EN;
+  const system = systemPromptFor(language);
   const user = buildUserPrompt(text, language);
 
   const controller = new AbortController();

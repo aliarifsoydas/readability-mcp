@@ -24,6 +24,41 @@ test("Russian verbless noun-phrase sentences are fragments", async () => {
   }
 });
 
+test("Russian noun-phrase bullets are fragments", async () => {
+  // The shape LLM bullet lists actually take in Russian. No determiner and no
+  // adjective to key on — only the missing predicate marks them.
+  const text =
+    "Наш сервис решает задачи бизнеса быстро и надёжно каждый день.\n\n" +
+    "Гибкий график. Экономия времени. Доступ к глобальному рынку талантов. Снижение операционных расходов.\n\n" +
+    "Мы работаем с компаниями разного масштаба уже более десяти лет подряд.";
+  const r = await aiDetectScore(text, { language: "ru" });
+  for (const start of ["Экономия", "Доступ", "Снижение"]) {
+    assert.ok(flagsFor(r, start).includes("fragment"), `${start} was not flagged as a fragment`);
+  }
+  assert.ok(r.signals.fragment_lists.score > 0, "the fragment-run signal did not fire");
+});
+
+test("nouns ending in -ость are not mistaken for infinitives", async () => {
+  // "точность" ends in "ть" exactly like an infinitive does, which would hide
+  // a whole class of Russian bullet fragments behind a phantom verb.
+  const text =
+    "Платформа обрабатывает заявки клиентов в течение одного рабочего дня без задержек.\n\n" +
+    "Высокая точность. Масштабируемость решений. Надёжность хранения. Прозрачность отчётности.";
+  const r = await aiDetectScore(text, { language: "ru" });
+  for (const start of ["Высокая точность", "Масштабируемость", "Надёжность", "Прозрачность"]) {
+    assert.ok(flagsFor(r, start).includes("fragment"), `${start} was not flagged`);
+  }
+});
+
+test("lowercase debris from abbreviation splits is not a fragment", async () => {
+  // "лезг.", "нем." and friends make the sentence splitter cut mid-clause; the
+  // lowercase pieces it leaves behind must not read as a fragment run.
+  const text =
+    "Слово встречается во многих языках. Ср. лезг. кац, лит. katė, нем. Katze, прусск. catto, фр. chat.";
+  const r = await aiDetectScore(text, { language: "ru" });
+  assert.equal(r.signals.fragment_lists.score, 0, "abbreviation debris triggered a fragment run");
+});
+
 test("the Russian dash is scored far more leniently than elsewhere", async () => {
   // The dash is a grammatical copula in Russian, so identical density must not
   // carry the same weight it does in English.

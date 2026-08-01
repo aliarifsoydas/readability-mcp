@@ -234,6 +234,7 @@ export function renderUiHtml(): string {
     <div class="uitoggle" id="uitoggle">
       <button data-ui="en">EN</button>
       <button data-ui="tr">TR</button>
+      <button data-ui="ru">RU</button>
     </div>
   </div>
 
@@ -358,9 +359,40 @@ var T={
     errWords:"Karar vermesi i\\u00e7in masaya \\u00f6nce s\\u00f6zc\\u00fck laz\\u0131m.",
     busy:"Okunuyor\\u2026", reading:"Edit\\u00f6r okuyor\\u2026", unreachable:"Masaya ula\\u015f\\u0131lamad\\u0131: ",
     deepNoMs:"Masada m\\u00fcsvedde yok.", deliberating:"J\\u00fcri m\\u00fczakere ediyor\\u2026", fromCache:"(\\u00f6nbellekten)"
+  },
+  ru:{
+    kicker:"\\u2116 1 &middot; Редакторский стол",
+    title:"Обзор <em>читабельности</em>",
+    sub:"Приговор ясности, ритму и искренности вашей прозы",
+    dlmid:"Подано на редакторскую оценку",
+    lblms:"Рукопись",
+    placeholderMs:"Положите сюда свои слова, и стол прочтёт их вам вслух\\u2026",
+    uwords:"слов", uchars:"знаков", tongue:"Язык текста",
+    submit:"Отправить на разбор",
+    lblverdict:"Приговор",
+    verdictEmpty:"На стол ещё не легла ни одна рукопись. Наберите текст и отправьте его; редактор вернёт все семь мер за один проход \\u2014 читабельность, связность, пригодность для поиска и безошибочный запах машины.",
+    lblclip:"Подробные пометы",
+    lbldeep:"Второе чтение \\u2014 машинное жюри",
+    deepintro:"Соберите жюри из языковых моделей, чтобы решить, писал ли эти слова человек. Такое чтение стоит денег и занимает время.",
+    cheap:"Дешёвое жюри \\u00b7 ~$0.01", premium:"Премиальное жюри \\u00b7 ~$0.07",
+    rawsum:"Почерк редактора \\u2014 сырой JSON",
+    grades:{read:"Читабельность", flow:"Связность и ритм", seo:"Пригодность для поиска", human:"Человеческий голос"},
+    notes:["безупречно","добротно","сойдёт","натужно","требует правки"],
+    sealPass:"годится в печать", sealFail:"вернуть автору",
+    machine:"читается как машина", humanlike:"читается как человек",
+    marksTitle:"Пометы редактора", clean:"Чистовик. Столу нечего вычёркивать.",
+    decks:{read:"Оценки по формулам, приведённые к общей шкале. Выше \\u2014 читать легче.", flow:"Ритм, словарное разнообразие и связки между фразами.", seo:"Меры связности за SEO-приговором.", human:"Человечность по каждому сигналу. Выше = меньше машины."},
+    juryTitle:"Согласие жюри", composite:"Сводная", heuristic:"Эвристика",
+    humanUnit:"/100 человек", agreement:"согласие", cost:"стоимость",
+    footDefault:"readability-mcp &middot; результаты кэшируются \\u2014 неизменную прозу не перечитывают",
+    footCached:'Взято из кэша <span class="cachetag">&mdash; эта проза уже лежала в деле</span>',
+    errWords:"Столу нужны слова, прежде чем выносить приговор.",
+    busy:"Читаем\\u2026", reading:"Редактор читает\\u2026", unreachable:"Стол недоступен: ",
+    deepNoMs:"На столе нет рукописи.", deliberating:"Жюри совещается\\u2026", fromCache:"(из кэша)"
   }
 };
-var ui = (navigator.language||"en").toLowerCase().indexOf("tr")===0 ? "tr" : "en";
+var navLang = (navigator.language||"en").toLowerCase();
+var ui = navLang.indexOf("tr")===0 ? "tr" : navLang.indexOf("ru")===0 ? "ru" : "en";
 function t(){ return T[ui]; }
 
 function applyI18n(){

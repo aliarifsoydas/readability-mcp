@@ -54,7 +54,7 @@ npm test         # unit + regression suite (no network)
 npm run benchmark # validate Russian scoring against a real grade-labelled corpus
 ```
 
-`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, and degenerate input (empty strings, punctuation, emoji) across every language.
+`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, first-class-language parity (judge prompt, UI bundle, lexicon sizes), and degenerate input (empty strings, punctuation, emoji) across every language.
 
 `npm run benchmark` downloads the **Russian Readability Corpus** — Social Studies textbooks for grades 5-11, published with the Dialogue 2018 paper — into `benchmark/corpus/` (gitignored) and checks four things:
 
@@ -148,3 +148,10 @@ Without the secret, `ai_score` returns heuristic-only results. With it, the tool
 - Syllable counting uses language-specific vowel patterns; English uses an additional consonant-cluster heuristic.
 - Russian coefficients come from Ivanov, Solnyshkina & Solovyev, *Efficiency of Text Readability Features in Russian Academic Texts* (Dialogue 2018), §2. Their raw scales are not Flesch scales — Oborneva scores a 5th grade textbook around +43 and an 11th grade one around −12 on this tokenizer — so the 0-100 normalization is fitted to that paper's grade-level corpus rather than to the English bands. See `npm run benchmark`.
 - Two heuristics are language-aware for Russian specifically: the em-dash signal in `ai_score` is scored far more leniently, because the dash is a grammatical copula there (*Москва — столица России*), and the sentence-fragment check accepts verbless predicates, because Russian drops the present-tense copula (*Он врач.* is a complete sentence).
+- The Russian fragment check keys on the missing predicate rather than on a determiner, because Russian has no articles and its LLM bullet fragments are bare noun phrases (*Экономия времени.*) that no suffix list covers. Two collisions had to be handled: the `-ость` noun suffix ends in `ть` exactly like an infinitive, and abbreviations (*лезг.*, *совр.*) make the sentence splitter cut mid-clause, so fragment candidates must start with a capital.
+
+### What `ai_score` heuristics do and do not catch
+
+Measured on Russian: real human prose (grade 5-11 textbooks, six Wikipedia articles) scores **1-8**, while unedited LLM article and marketing copy scores **44-58** — a clean 37-point gap, with zero false fragment runs on the human side.
+
+The same measurement shows the limit. LLM text rewritten in a natural voice — no stock openers, varied sentence length — scores **2-13**, indistinguishable from human. Four of the six heuristic signals are phrase and structure matchers, so they detect *unedited LLM boilerplate*, not authorship. Treat a low heuristic score as "no boilerplate found", not as "written by a human", and use the LLM judge panel (`tier: "cheap"` / `"premium"`) when the question is actually authorship.

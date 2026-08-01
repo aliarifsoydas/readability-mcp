@@ -13,10 +13,77 @@ export interface ToolDoc {
   description: string;
   params: ParamDoc[];
   output_summary: string;
+  /** JSON Schema for the 200 response, served in the OpenAPI document. */
+  output_schema: object;
   cost?: string;
   example_request: object;
   example_response_excerpt: object;
 }
+
+const NUM = { type: "number" } as const;
+const STR = { type: "string" } as const;
+
+/** A bag of formula name -> value; which keys appear depends on the language. */
+const METRIC_MAP = {
+  type: "object",
+  additionalProperties: NUM,
+  description: "Keyed by formula name. Which formulas appear depends on the language.",
+} as const;
+
+const READING_STATS = {
+  type: "object",
+  properties: {
+    characters: NUM,
+    words: NUM,
+    sentences: NUM,
+    syllables: NUM,
+    avg_word_length: NUM,
+    avg_sentence_length: NUM,
+    avg_syllables_per_word: NUM,
+    long_word_percentage: { ...NUM, description: "Russian only: share of words above three syllables." },
+  },
+} as const;
+
+const FLOW_METRICS = {
+  type: "object",
+  properties: { rhythm: NUM, lexical_diversity: NUM, connective_density: NUM },
+  required: ["rhythm", "lexical_diversity", "connective_density"],
+} as const;
+
+const FLOW_DETAILS = {
+  type: "object",
+  properties: {
+    rhythm: {
+      type: "object",
+      properties: { coefficient_of_variation: NUM, mean_sentence_length: NUM },
+    },
+    lexical_diversity: { type: "object", properties: { mattr: NUM, window_size: NUM } },
+    connective_density: {
+      type: "object",
+      properties: { connectives_per_sentence: NUM, total_connectives: NUM },
+    },
+  },
+} as const;
+
+const REASON = {
+  type: "object",
+  description: "Why a signal fired. Present only when the signal crossed its threshold.",
+  properties: {
+    code: STR,
+    severity: { type: "string", enum: ["low", "medium", "high"] },
+    explanation: STR,
+    location: {
+      type: "object",
+      properties: { paragraph: NUM, sentences: { type: "array", items: NUM } },
+    },
+    evidence: { description: "Signal-specific supporting data." },
+  },
+  required: ["code", "severity", "explanation"],
+} as const;
+
+const SIGNAL_BASE = { score: NUM, reason: REASON } as const;
+
+const LANGUAGE_ENUM = ["en", "tr", "es", "de", "fr", "it", "ru"];
 
 export const TOOLS: ToolDoc[] = [
   {
@@ -28,7 +95,19 @@ export const TOOLS: ToolDoc[] = [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
       { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
     ],
-    output_summary: "{ language, metrics, metrics_100, overall_100 }",
+    output_summary: "{ language, interpretation, metrics, metrics_100, overall_100, stats }",
+    output_schema: {
+      type: "object",
+      properties: {
+        language: { type: "string", enum: LANGUAGE_ENUM },
+        interpretation: { ...STR, description: "Human-readable band, in the analysed language." },
+        metrics: { ...METRIC_MAP, description: "Raw formula values, on each formula's own scale." },
+        metrics_100: { ...METRIC_MAP, description: "The same formulas normalized to 0-100, higher = easier." },
+        overall_100: { ...NUM, description: "Mean of metrics_100." },
+        stats: READING_STATS,
+      },
+      required: ["language", "interpretation", "metrics", "metrics_100", "overall_100", "stats"],
+    },
     example_request: { text: "Bu çok kısa bir Türkçe cümledir.", language: "auto" },
     example_response_excerpt: { language: "tr", metrics: { atesman: 78.5 }, metrics_100: { atesman: 78.5 }, overall_100: 78.5 },
   },
@@ -41,7 +120,22 @@ export const TOOLS: ToolDoc[] = [
       { name: "url", type: "string", required: true, description: "Webpage to fetch." },
       { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
     ],
-    output_summary: "{ url, title, text_preview, language, metrics, metrics_100, overall_100 }",
+    output_summary: "{ url, title, text_preview, language, metrics, metrics_100, overall_100, stats }",
+    output_schema: {
+      type: "object",
+      properties: {
+        url: { ...STR, description: "Final URL after redirects." },
+        title: STR,
+        text_preview: { ...STR, description: "First 500 characters of the extracted text." },
+        language: { type: "string", enum: LANGUAGE_ENUM },
+        interpretation: STR,
+        metrics: METRIC_MAP,
+        metrics_100: METRIC_MAP,
+        overall_100: NUM,
+        stats: READING_STATS,
+      },
+      required: ["url", "language", "metrics_100", "overall_100"],
+    },
     example_request: { url: "https://example.com/article" },
     example_response_excerpt: { url: "https://example.com/article", title: "...", overall_100: 64.2 },
   },
@@ -55,6 +149,17 @@ export const TOOLS: ToolDoc[] = [
       { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto", enum: ["auto", "en", "tr", "es", "de", "fr", "it", "ru"] },
     ],
     output_summary: "{ language, overall_100, metrics_100: { rhythm, lexical_diversity, connective_density }, details, interpretation }",
+    output_schema: {
+      type: "object",
+      properties: {
+        language: { type: "string", enum: LANGUAGE_ENUM },
+        overall_100: NUM,
+        metrics_100: FLOW_METRICS,
+        details: FLOW_DETAILS,
+        interpretation: { ...STR, description: "Band label, in the analysed language." },
+      },
+      required: ["language", "overall_100", "metrics_100", "details", "interpretation"],
+    },
     example_request: { text: "Cümle bir. Cümle iki. Cümle üç." },
     example_response_excerpt: { overall_100: 32.1, metrics_100: { rhythm: 0, lexical_diversity: 60, connective_density: 36 }, interpretation: "Düşük akış" },
   },
@@ -62,15 +167,36 @@ export const TOOLS: ToolDoc[] = [
     name: "seo_score",
     summary: "Single-formula readability + flow combined for SEO publishing decisions.",
     description:
-      "Picks one readability formula (default per language) and combines it with `flow_score` using configurable weights. Returns a `passed` boolean against a threshold and concrete localized suggestions (TR/EN bundles fully populated; ES/DE/FR/IT have basic bundles).",
+      "Picks one readability formula (default per language) and combines it with `flow_score` using configurable weights. Returns a `passed` boolean against a threshold and concrete localized suggestions (EN/TR/RU bundles fully populated; ES/DE/FR/IT have basic bundles).",
     params: [
       { name: "text", type: "string", required: true, description: "Text to analyze." },
-      { name: "formula", type: "string", required: false, description: "Override readability formula. Defaults: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT)." },
+      { name: "formula", type: "string", required: false, description: "Override readability formula. Defaults: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT), Oborneva (RU). A formula the language does not provide is rejected with the list of the ones it does." },
       { name: "language", type: "string", required: false, description: "Language code or 'auto'.", default: "auto" },
       { name: "threshold", type: "number", required: false, description: "Pass threshold on the 0-100 scale.", default: "70" },
       { name: "weight_readability", type: "number", required: false, description: "Weight of readability vs flow in overall score (0-1).", default: "0.5" },
     ],
-    output_summary: "{ formula, threshold, weights, readability_100, flow_100, overall_100, passed, verdict, suggestions, breakdown }",
+    output_summary: "{ language, formula, threshold, weights, readability_100, readability_raw, flow_100, overall_100, passed, verdict, suggestions, breakdown }",
+    output_schema: {
+      type: "object",
+      properties: {
+        language: { type: "string", enum: LANGUAGE_ENUM },
+        formula: { ...STR, description: "The formula actually used." },
+        threshold: NUM,
+        weights: { type: "object", properties: { readability: NUM, flow: NUM } },
+        readability_100: NUM,
+        readability_raw: { ...NUM, description: "The chosen formula on its own scale." },
+        flow_100: NUM,
+        overall_100: { ...NUM, description: "readability_100 and flow_100 blended by `weights`." },
+        passed: { type: "boolean", description: "Both readability_100 and flow_100 met the threshold." },
+        verdict: { ...STR, description: "Localized one-line verdict." },
+        suggestions: { type: "array", items: STR, description: "Localized fixes for whichever side failed." },
+        breakdown: {
+          type: "object",
+          properties: { flow_metrics: FLOW_METRICS, flow_details: FLOW_DETAILS },
+        },
+      },
+      required: ["language", "formula", "overall_100", "passed", "verdict"],
+    },
     example_request: { text: "Buraya analiz edilecek bir Türkçe metin gelir...", threshold: 70 },
     example_response_excerpt: { formula: "atesman", overall_100: 65.3, passed: false, verdict: "Akış zayıf: cümle uzunluklarını çeşitlendir", suggestions: ["Kısa ve uzun cümleleri sırala — monoton ritimden kaçın"] },
   },
@@ -78,7 +204,7 @@ export const TOOLS: ToolDoc[] = [
     name: "ai_score",
     summary: "AI-likeness score with explainable reasons + optional LLM judge panel.",
     description:
-      "Six heuristic signals always run inside the Worker (free, ms-fast): burstiness, AI-tell phrases (EN+TR lexicons), fragment-list paragraphs, parallel structure runs, em-dash overuse, and \"not X but Y\" patterns. Each signal returns a `reason` with severity, explanation, evidence and location. The optional LLM panel adds 3 frontier models in parallel via OpenRouter, surfacing consensus reasons (codes flagged by ≥2 judges) with quoted evidence. Composite blends heuristic and LLM scores; verdict escalates by max signal severity so a single high-severity finding isn't drowned out.",
+      "Six heuristic signals always run inside the Worker (free, ms-fast): burstiness, AI-tell phrases (EN/TR/RU lexicons), fragment-list paragraphs, parallel structure runs, em-dash overuse, and \"not X but Y\" patterns including multi-item runs. Each signal returns a `reason` with severity, explanation, evidence and location. Several signals are language-aware: the dash is scored leniently for Russian because it is a grammatical copula there, the Russian fragment check accepts verbless predicates, and Turkish case folding is locale-aware. The optional LLM panel adds 3 frontier models in parallel via OpenRouter, judging in EN, TR or RU with a prompt written for that language, surfacing consensus reasons (codes flagged by ≥2 judges) with quoted evidence. Composite blends heuristic and LLM scores; verdict escalates by max signal severity so a single high-severity finding isn't drowned out.",
     cost:
       "tier=heuristic → $0 / ~5ms · tier=cheap → ~$0.012 / ~10s · tier=premium → ~$0.066 / ~25s. LLM tiers require OPENROUTER_API_KEY secret. Output includes total_cost_usd per panel call.",
     params: [
@@ -88,7 +214,115 @@ export const TOOLS: ToolDoc[] = [
       { name: "models", type: "string[]", required: false, description: "Override the panel with custom OpenRouter model IDs. Implies LLM use; ignores `tier` if non-empty." },
       { name: "llm_weight", type: "number", required: false, description: "Weight of LLM panel score vs heuristic in composite_score (0-1).", default: "0.6" },
     ],
-    output_summary: "{ composite_score, verdict, heuristic_score, llm_score?, signals: { burstiness, ai_phrases, fragment_lists, parallel_structure, em_dash, not_x_but_y, llm_panel? }, reasons[], per_sentence[], summary_advice[], stats }",
+    output_summary: "{ language, composite_score, verdict, heuristic_score, llm_score?, signals: { burstiness, ai_phrases, fragment_lists, parallel_structure, em_dash, not_x_but_y, llm_panel? }, reasons[], per_sentence[], summary_advice[], stats }",
+    output_schema: {
+      type: "object",
+      properties: {
+        language: { type: "string", enum: LANGUAGE_ENUM },
+        composite_score: { ...NUM, description: "0-100, higher = more AI-like. Equals heuristic_score when no panel ran." },
+        verdict: { type: "string", enum: ["likely_human", "uncertain", "likely_ai", "very_likely_ai"] },
+        heuristic_score: { ...NUM, description: "Weighted blend of the six in-Worker signals." },
+        llm_score: { ...NUM, description: "Mean panel score. Absent unless an LLM tier ran." },
+        signals: {
+          type: "object",
+          properties: {
+            burstiness: {
+              type: "object",
+              description: "Sentence-length variance. Fires when the rhythm is too uniform.",
+              properties: { ...SIGNAL_BASE, cv: NUM, mean_sentence_length: NUM },
+            },
+            ai_phrases: {
+              type: "object",
+              description: "Stock-phrase lexicon hits. Overlapping entries are counted once, longest first.",
+              properties: {
+                ...SIGNAL_BASE,
+                total: NUM,
+                hits: {
+                  type: "array",
+                  items: { type: "object", properties: { phrase: STR, count: NUM } },
+                },
+              },
+            },
+            fragment_lists: {
+              type: "object",
+              description: "Runs of three or more consecutive verbless fragments inside one paragraph.",
+              properties: {
+                ...SIGNAL_BASE,
+                occurrences: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: { paragraph: NUM, consecutive_count: NUM, example: STR },
+                  },
+                },
+              },
+            },
+            parallel_structure: {
+              type: "object",
+              description: "Consecutive sentences sharing an opening token and length.",
+              properties: {
+                ...SIGNAL_BASE,
+                runs: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: { start_sentence: NUM, length: NUM, pattern: STR },
+                  },
+                },
+              },
+            },
+            em_dash: {
+              type: "object",
+              description:
+                "Dash density. Scored leniently for Russian, where the dash is a grammatical copula, and an en dash between digits is read as a numeric range rather than a dash.",
+              properties: { ...SIGNAL_BASE, count: NUM, density_per_sentence: NUM },
+            },
+            not_x_but_y: {
+              type: "object",
+              description: "Rhetorical antithesis. Gated on density, so long human texts do not accumulate a reason.",
+              properties: {
+                ...SIGNAL_BASE,
+                count: NUM,
+                multi_item_runs: {
+                  ...NUM,
+                  description: "Matches negating several items in a row (\"not A, not B, not C - but D\"), which weigh more than a two-part antithesis.",
+                },
+              },
+            },
+            llm_panel: {
+              type: "object",
+              description: "Present only when an LLM tier ran.",
+              properties: {
+                score: NUM,
+                agreement: { type: "string", enum: ["high", "medium", "low"] },
+                total_cost_usd: NUM,
+                judges: { type: "array", items: { type: "object" } },
+                consensus_reasons: { type: "array", items: { type: "object" } },
+              },
+            },
+          },
+        },
+        reasons: { type: "array", items: REASON },
+        per_sentence: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              idx: NUM,
+              text: STR,
+              word_count: NUM,
+              flags: { type: "array", items: STR },
+            },
+          },
+        },
+        summary_advice: { type: "array", items: STR, description: "Localized fixes, one per raised reason." },
+        stats: {
+          type: "object",
+          properties: { sentences: NUM, paragraphs: NUM, words: NUM },
+        },
+      },
+      required: ["language", "composite_score", "verdict", "heuristic_score", "signals", "reasons", "stats"],
+    },
     example_request: { text: "The meeting point address. The meeting time. A map link...", tier: "cheap" },
     example_response_excerpt: {
       composite_score: 41.6,
@@ -105,15 +339,33 @@ export const TOOLS: ToolDoc[] = [
     description: "Script check for Cyrillic, then a stopword-frequency + diacritic heuristic across the Latin-script languages. Fast, deterministic, no external calls.",
     params: [{ name: "text", type: "string", required: true, description: "Text to detect language of." }],
     output_summary: "{ language: 'en' | 'tr' | 'es' | 'de' | 'fr' | 'it' | 'ru' }",
+    output_schema: {
+      type: "object",
+      properties: { language: { type: "string", enum: LANGUAGE_ENUM } },
+      required: ["language"],
+    },
     example_request: { text: "Bu bir Türkçe cümledir." },
     example_response_excerpt: { language: "tr" },
   },
   {
     name: "list_supported_languages",
     summary: "Meta tool: enumerate languages, readability formulas per language, and flow metrics.",
-    description: "Useful for client UIs to populate language pickers and explain available scoring options.",
+    description: "Useful for client UIs to populate language pickers and explain available scoring options. Note that readability formulas are language-specific: a formula listed for one language is rejected for another.",
     params: [],
     output_summary: "{ languages, metrics_by_language, flow_metrics, note }",
+    output_schema: {
+      type: "object",
+      properties: {
+        languages: { type: "array", items: { type: "string", enum: LANGUAGE_ENUM } },
+        metrics_by_language: {
+          type: "object",
+          additionalProperties: { type: "array", items: STR },
+        },
+        flow_metrics: { type: "array", items: STR },
+        note: STR,
+      },
+      required: ["languages", "metrics_by_language", "flow_metrics"],
+    },
     example_request: {},
     example_response_excerpt: { languages: ["en", "tr", "es", "de", "fr", "it", "ru"], flow_metrics: ["rhythm", "lexical_diversity", "connective_density"] },
   },
@@ -154,6 +406,10 @@ function toolSection(t: ToolDoc): string {
       ${params}
       <h3>Output shape</h3>
       <pre><code>${escapeHtml(t.output_summary)}</code></pre>
+      <details>
+        <summary>Full response schema</summary>
+        <pre><code>${escapeHtml(JSON.stringify(t.output_schema, null, 2))}</code></pre>
+      </details>
       <h3>Example</h3>
       <div class="example">
         <div>
@@ -285,7 +541,10 @@ export function renderOpenApi(): object {
               "200": {
                 description: "Success",
                 content: {
-                  "application/json": { example: t.example_response_excerpt },
+                  "application/json": {
+                    schema: t.output_schema,
+                    example: t.example_response_excerpt,
+                  },
                 },
               },
             },

@@ -22,7 +22,7 @@ Set `language: "auto"` (default) for detection: Cyrillic text is resolved by scr
 - `score_url(url, language?)` — fetch a webpage, extract main content via `HTMLRewriter`, then score (same shape as `score_text`).
 - `flow_score(text, language?)` — score natural flow on three statistical dimensions: sentence-length rhythm, lexical diversity (MATTR), and connective/discourse marker density. Returns each metric on 0-100 plus an overall.
 - `seo_score(text, formula?, language?, threshold?, weight_readability?)` — single-formula readability + flow combined for SEO. Returns `passed` boolean, `verdict`, and concrete suggestions in the detected language. Defaults: Flesch for EN, Ateşman for TR, etc; threshold 70; equal weights.
-- `ai_score(text, language?, tier?, models?, llm_weight?)` — score how AI-like a text is. Always runs **six heuristic signals** in the Worker: burstiness (sentence-length variance), AI-tell phrases (multilingual lexicon), fragment-list paragraphs (`X. Y. Z.` runs), parallel structure runs, em-dash overuse, and "not X but Y" rhetorical pattern. The `tier` parameter controls the LLM judge panel:
+- `ai_score(text, language?, tier?, models?, llm_weight?)` — score how AI-like a text is. Always runs **six heuristic signals** in the Worker: burstiness (sentence-length variance), AI-tell phrases (EN/TR/RU lexicons), fragment-list paragraphs (`X. Y. Z.` runs), parallel structure runs, em-dash overuse, and the "not X but Y" rhetorical pattern — including multi-item runs (*not A, not B, not C — but D*), which are counted separately because they weigh more than a two-part antithesis. The `tier` parameter controls the LLM judge panel:
   - `tier: "heuristic"` (default) — heuristics only, ~5ms, **$0**
   - `tier: "cheap"` — adds a 3-model ensemble (`claude-haiku-4.5` + `gpt-5.4-mini` + `gemini-3.1-flash-lite`), ~10s, **~$0.012/call**
   - `tier: "premium"` — adds a frontier ensemble (`claude-sonnet-4.6` + `gpt-5.4` + `gemini-3.1-pro-preview`), ~25s, **~$0.066/call**
@@ -54,7 +54,7 @@ npm test         # unit + regression suite (no network)
 npm run benchmark # validate Russian scoring against a real grade-labelled corpus
 ```
 
-`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, first-class-language parity (judge prompt, UI bundle, lexicon sizes), and degenerate input (empty strings, punctuation, emoji) across every language.
+`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, first-class-language parity (judge prompt, UI bundle, lexicon sizes), the antithesis patterns, documentation drift, and degenerate input (empty strings, punctuation, emoji) across every language.
 
 `npm run benchmark` downloads the **Russian Readability Corpus** — Social Studies textbooks for grades 5-11, published with the Dialogue 2018 paper — into `benchmark/corpus/` (gitignored) and checks four things:
 
@@ -67,8 +67,8 @@ The benchmark depends on an external download, so CI runs it as an advisory job;
 
 ## Browse the tool catalog
 
-- `GET /docs` — human-readable HTML page documenting every tool, its parameters, output shape, and example request/response. Auto-rendered when a browser opens `/`.
-- `GET /openapi.json` — OpenAPI 3.1 spec describing each tool's input/output. Useful for tool generators and AI clients that consume schemas.
+- `GET /docs` — human-readable HTML page documenting every tool, its parameters, output shape, full response schema, and example request/response. Auto-rendered when a browser opens `/`.
+- `GET /openapi.json` — OpenAPI 3.1 spec describing each tool's input **and a full JSON Schema for its response**, down to the shape of every `ai_score` signal. Useful for tool generators and AI clients that consume schemas. The suite checks these schemas against live tool output, so a renamed or added field fails the build rather than drifting.
 - `GET /` (with `Accept: application/json`) — short JSON manifest with endpoint URLs and tool names.
 
 ## Deploy to Cloudflare

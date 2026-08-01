@@ -98,7 +98,7 @@ export class ReadabilityMCP extends McpAgent {
           .enum(SUPPORTED_FORMULAS as unknown as [string, ...string[]])
           .optional()
           .describe(
-            "Single readability formula to use. If omitted, uses the language's default (Flesch for EN, Ateşman for TR, etc).",
+            "Single readability formula to use. Must be one of the formulas the language provides, otherwise the call fails with the list of the ones it does. If omitted, uses the language default: Flesch (EN), Ateşman (TR), Fernández-Huerta (ES), Flesch-Deutsch (DE), Kandel-Moles (FR), Gulpease (IT), Oborneva (RU).",
           ),
         language: LANG_ENUM.optional().describe(
           "Language code: en, tr, es, de, fr, it, ru, or 'auto' (default).",

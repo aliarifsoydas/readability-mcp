@@ -8,5 +8,8 @@ dist/
 .test-build/
 benchmark/corpus/
 benchmark/corpus-ar/
+benchmark/corpus-paired/
+benchmark/corpus-lead/
+benchmark/corpus-tr/
 .DS_Store
 *.log

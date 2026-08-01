@@ -51,24 +51,34 @@ All scoring tools return scores **normalized to 0-100** where higher = easier / 
 ## Tests and benchmark
 
 ```bash
-npm test              # unit + regression suite (no network)
-npm run benchmark     # both corpus benchmarks
-npm run benchmark:ru  # Russian, against grade 5-11 textbooks
-npm run benchmark:ar  # Arabic, against BAREC's 19 annotated levels
+npm test               # unit + regression suite (no network)
+npm run benchmark      # every language
+npm run benchmark:ru   # Russian — grade 5-11 textbooks
+npm run benchmark:ar   # Arabic — BAREC's 19 annotated levels
+npm run benchmark:paired  # en/es/fr/it/de — children's vs adult encyclopedia
+npm run benchmark:tr   # Turkish — register separation
 ```
 
-`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the Russian-specific `ai_score` heuristics, first-class-language parity (judge prompt, UI bundle, lexicon sizes), the antithesis patterns, documentation drift, and degenerate input (empty strings, punctuation, emoji) across every language.
+`npm test` compiles `src/` to `.test-build/` and runs `node --test` over `test/`. It covers tokenization and syllable counting, formula wiring, curve monotonicity and range, language detection, the language-specific `ai_score` heuristics, first-class-language parity (judge prompt, UI bundle, lexicon sizes), the antithesis patterns, documentation drift, and degenerate input across every language.
 
-`npm run benchmark` downloads the **Russian Readability Corpus** — Social Studies textbooks for grades 5-11, published with the Dialogue 2018 paper — into `benchmark/corpus/` (gitignored) and checks four things:
+### Every supported language is validated against real data
 
-1. **Tokenizer** — our ASL/ASW must track the paper's Table 1 (`r = 0.993` / `0.999`). We count words where the paper counts tokens including punctuation, so its ASL runs about one token per sentence higher; the benchmark asserts that gap stays a stable offset instead of drifting.
-2. **Ranking** — Spearman correlation between score and grade level, currently **ρ = −0.99** for the combined score and −0.98 or better for each formula on its own.
-3. **Grade bands** — grade 5 must land near 90 and grade 11 near 30; every grade is currently within 2 points of its target.
-4. **Calibration data** — prints the mean raw value per grade, which is the input for re-fitting the curves in `normalize.ts` if the tokenizer ever changes.
+| | evidence | result |
+|---|---|---|
+| `ru` | Russian Readability Corpus — 14 textbooks, grades 5-11 | **ρ = −0.99** with grade level; every grade band within 2 points |
+| `ar` | BAREC — 1330 documents on a 19-level scale | **ρ = 0.77** with a document's average level; bands within 5 points |
+| `en` | Simple English Wikipedia vs English Wikipedia, 60 topics | **100%** of pairs ordered correctly, mean gap 24.6 |
+| `de` | Klexikon vs German Wikipedia, 55 topics | **98%**, gap 23.4 |
+| `es` | Vikidia vs Spanish Wikipedia, 52 topics | **98%**, gap 15.6 |
+| `fr` | Vikidia vs French Wikipedia, 59 topics | **98%**, gap 15.8 |
+| `it` | Vikidia vs Italian Wikipedia, 47 topics | **91%**, gap 8.4 |
+| `tr` | Wikisource folk tales vs statutes | **100%** separation, gap 41.2 — coarse, see below |
 
-`npm run benchmark:ar` does the same against **BAREC** (Balanced Arabic Readability Evaluation Corpus, ACL Findings 2025) — 69k sentences hand-annotated on a 19-level scale. Current: **ρ = 0.77** for the AWL-ASL index against a document's average sentence level, every level band within 5 points of its target.
+The paired benchmark is the strongest design available without a graded corpus: both halves of a pair cover the same subject in the same language, so the only thing left for the scorer to see is how the text is written. It is ordinal, which means it needs no calibrated scale to be meaningful.
 
-Both benchmarks depend on an external download, so CI runs them as advisory jobs; the calibration itself is pinned in the unit suite so a regression fails `npm test` regardless.
+Italian is the weakest of the five. It ships a single formula (Gulpease) on an identity curve, and its 8-point gap leaves less headroom than the others.
+
+Turkish has no freely available graded corpus and no children's encyclopedia, so it gets a two-class separation instead. Take it for what it is: a fairy tale and a legal code are far enough apart that any scorer which is not actively broken will separate them, so this catches a dead formula but cannot certify calibration. A Wikipedia lead-vs-body proxy was tried first and **rejected** — on English, where the paired benchmark scores 100%, that proxy scored 39%, so its premise was wrong rather than the scorer. It is kept in `benchmark/lead-body.mjs` as a documented negative result.
 
 ### Why Arabic ships only two formulas
 

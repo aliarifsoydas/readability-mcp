@@ -24,6 +24,29 @@ test("Russian verbless noun-phrase sentences are fragments", async () => {
   }
 });
 
+test("one occurrence is counted once even when list entries nest", async () => {
+  // "tapestry" sits inside "rich tapestry", "pivotal role" inside "plays a
+  // pivotal role". Counting both would score a single phrase twice over.
+  const cases = [
+    ["en", "The book is a rich tapestry of ideas.", "rich tapestry"],
+    ["en", "It plays a pivotal role in the process.", "plays a pivotal role"],
+    ["en", "They embark on a journey through the data.", "embark on a journey"],
+    ["tr", "Hiç şüphesiz bu böyledir.", "hiç şüphesiz"],
+    ["ru", "Это является неотъемлемой частью процесса.", "является неотъемлемой частью"],
+  ];
+  for (const [language, text, expected] of cases) {
+    const r = await aiDetectScore(text, { language });
+    assert.equal(r.signals.ai_phrases.total, 1, `${text} -> ${JSON.stringify(r.signals.ai_phrases.hits)}`);
+    assert.equal(r.signals.ai_phrases.hits[0].phrase, expected, "the longer, more specific entry should win");
+  }
+});
+
+test("repeated distinct phrases still accumulate", async () => {
+  const text = "In conclusion, it is worth noting the tapestry here. In summary, we embark on a journey.";
+  const r = await aiDetectScore(text, { language: "en" });
+  assert.ok(r.signals.ai_phrases.total >= 4, `only ${r.signals.ai_phrases.total} counted`);
+});
+
 test("Russian noun-phrase bullets are fragments", async () => {
   // The shape LLM bullet lists actually take in Russian. No determiner and no
   // adjective to key on — only the missing predicate marks them.

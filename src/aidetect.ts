@@ -204,12 +204,33 @@ function aiPhraseSignal(text: string, lang: SupportedLanguage, sentenceCount: nu
   const phrases = AI_PHRASES[lang];
   if (!phrases.length) return { score: 0, hits: [], total: 0 };
   const lower = text.toLowerCase();
+  const claimed = new Uint8Array(lower.length);
   const hits: { phrase: string; count: number }[] = [];
   let total = 0;
-  for (const phrase of phrases) {
+  // Longest first, and every match claims its span: several entries in these
+  // lists nest inside one another ("tapestry" in "rich tapestry", "pivotal
+  // role" in "plays a pivotal role"), and counting each of them separately
+  // would score a single occurrence two or three times over.
+  for (const phrase of [...phrases].sort((a, b) => b.length - a.length)) {
     const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(?:^|[^\\p{L}])${escaped}(?:[^\\p{L}]|$)`, "gu");
-    const count = (lower.match(re) ?? []).length;
+    const re = new RegExp(`(?:^|[^\\p{L}])(${escaped})(?:[^\\p{L}]|$)`, "gu");
+    let count = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(lower)) !== null) {
+      const start = m.index + (m[0].startsWith(m[1]!) ? 0 : 1);
+      const end = start + m[1]!.length;
+      re.lastIndex = end;
+      let free = true;
+      for (let i = start; i < end; i++) {
+        if (claimed[i]) {
+          free = false;
+          break;
+        }
+      }
+      if (!free) continue;
+      claimed.fill(1, start, end);
+      count++;
+    }
     if (count > 0) {
       hits.push({ phrase, count });
       total += count;

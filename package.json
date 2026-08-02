@@ -23,7 +23,11 @@
     "prebenchmark:tr": "npm run build:test",
     "build:lexicon": "node scripts/build-lexicon.mjs",
     "benchmark:grammar": "node benchmark/grammar-tr.mjs",
-    "prebenchmark:grammar": "npm run build:test"
+    "prebenchmark:grammar": "npm run build:test",
+    "ensure:lexicon": "node scripts/ensure-lexicon.mjs",
+    "pretypecheck": "npm run ensure:lexicon",
+    "prebuild:test": "npm run ensure:lexicon",
+    "predeploy": "npm run ensure:lexicon"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

@@ -25,8 +25,8 @@ test("every dimension carries its value, the register norms and a nearest regist
   assert.deepEqual(Object.keys(p.dimensions).sort(), expected.sort());
   for (const [name, d] of Object.entries(p.dimensions)) {
     assert.ok(Number.isFinite(d.value), name);
-    assert.deepEqual(Object.keys(d.norms).sort(), ["ansiklopedi", "edebiyat", "haber", "pazarlama"]);
-    assert.ok(["edebiyat", "haber", "pazarlama", "ansiklopedi"].includes(d.closest), name);
+    assert.deepEqual(Object.keys(d.norms).sort(), ["ansiklopedi", "deneme", "edebiyat", "haber", "pazarlama"]);
+    assert.ok(["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"].includes(d.closest), name);
   }
 });
 
@@ -58,7 +58,7 @@ test("no target means no deviation field, a target adds one", () => {
 
 test("the profile names a nearest register overall", () => {
   const p = styleProfileTurkish(ENCYCLOPEDIC);
-  assert.ok(["edebiyat", "haber", "pazarlama", "ansiklopedi"].includes(p.closest_register));
+  assert.ok(["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"].includes(p.closest_register));
 });
 
 test("short text is flagged as unreliable rather than scored silently", () => {

@@ -382,19 +382,19 @@ export const TOOLS: ToolDoc[] = [
     name: "style_profile",
     summary: "Where a Turkish text sits between registers, per dimension.",
     description:
-      "A profile, not a score. Style has no universal optimum — a statute is supposed to be nominal and impersonal and marketing copy is not — so the output is where the text sits relative to four registers (edebiyat, haber, pazarlama, ansiklopedi) on each dimension, plus the nearest register overall. Pass `target` to get the signed deviation from that register's norms. Dimensions were kept only if they were measured to separate registers on a four-register Turkish corpus; five candidates were dropped for barely moving (nominalisation 1.4x, light verbs 1.2x, participle load 1.2x, connective variety 1.6x, passive voice 1.9x). The three modes of address are the strongest at 12.7x, 16.1x and 4.9x.",
+      "A profile, not a score. Style has no universal optimum — a statute is supposed to be nominal and impersonal and marketing copy is not — so the output is where the text sits relative to five registers (edebiyat, haber, pazarlama, ansiklopedi, deneme) on each dimension, plus the nearest register overall. Pass `target` to get the signed deviation from that register's norms. Dimensions were kept only if they were measured to separate registers on a five-register Turkish corpus of 1,196 documents; five candidates were dropped for barely moving (nominalisation 1.4x, light verbs 1.2x, participle load 1.2x, connective variety 1.6x, passive voice 1.9x). The three modes of address are the strongest at 12.7x, 16.1x and 4.9x.",
     params: [
       { name: "text", type: "string", required: true, description: "Text to profile." },
       { name: "language", type: "string", required: false, description: "Only Turkish is supported.", default: "tr", enum: ["tr"] },
-      { name: "target", type: "string", required: false, description: "Register to measure deviation against.", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+      { name: "target", type: "string", required: false, description: "Register to measure deviation against.", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"] },
     ],
     output_summary: "{ language, target?, closest_register, dimensions, notes, stats }",
     output_schema: {
       type: "object",
       properties: {
         language: { type: "string", enum: ["tr"] },
-        target: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
-        closest_register: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+        target: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"] },
+        closest_register: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"] },
         dimensions: {
           type: "object",
           description: "Keyed by dimension name.",
@@ -403,7 +403,7 @@ export const TOOLS: ToolDoc[] = [
             properties: {
               value: NUM,
               norms: { type: "object", additionalProperties: NUM, description: "Corpus mean per register." },
-              closest: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+              closest: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"] },
               deviation: { ...NUM, description: "Signed distance from the target register. Present only when `target` was given." },
             },
             required: ["value", "norms", "closest"],

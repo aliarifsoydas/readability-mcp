@@ -219,7 +219,7 @@ export class ReadabilityMCP extends McpAgent {
         text: z.string().min(1).describe("The text to profile."),
         language: z.enum(["tr"]).optional().describe("Only Turkish is supported."),
         target: z
-          .enum(["edebiyat", "haber", "pazarlama", "ansiklopedi"])
+          .enum(["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"])
           .optional()
           .describe("Optional register to measure deviation against."),
       },

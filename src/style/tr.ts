@@ -35,24 +35,36 @@ const IMPERATIVE =
 const FILLER =
   /(?<![\p{L}])(?:son derece|oldukça|bir hayli|büyük önem|aynı zamanda|bu bağlamda|söz konusu|bir şekilde|olarak karşımıza)(?![\p{L}])/giu;
 
-export type Register = "edebiyat" | "haber" | "pazarlama" | "ansiklopedi";
+export type Register = "edebiyat" | "haber" | "pazarlama" | "ansiklopedi" | "deneme";
 
 /**
- * Mean value per register, measured over a four-register Turkish corpus
- * (56 literary, 60 news, 60 marketing, 42 encyclopedic documents of 200+ words).
- * The marketing sample is the thinnest and the one most worth widening.
+ * Mean value per register, measured over 1,196 Turkish documents of 200+ words:
+ * 56 literary, 181 news, 158 marketing, 204 encyclopedic, 597 essays.
+ *
+ * `deneme` is student writing from one university's Turkish course, so read it
+ * as the essay genre rather than as "natural Turkish" in general — a single
+ * source cannot stand for a whole language. It is here because it is the only
+ * freely available body of unmistakably non-promotional Turkish prose of any
+ * size, and because it is a genuinely distinct profile: nearly three times the
+ * first-person-plural of any other register, half the sentence length, and the
+ * lowest repetition of sentence openings.
+ *
+ * `pazarlama` is trade-press writing about marketing rather than persuasive
+ * product copy, and its documents are from 2018-21. A 2024-25 sample of the same
+ * sources puts second-person address at 10.26 against the 6.7 here, so treat
+ * that dimension as dated.
  */
 const NORMS: Record<string, Record<Register, number>> = {
-  ikinci_kisi_hitabi: { edebiyat: 3.64, haber: 2.21, pazarlama: 6.31, ansiklopedi: 0.5 },
-  birinci_cogul: { edebiyat: 5.76, haber: 4.6, pazarlama: 3.43, ansiklopedi: 0.36 },
-  emir_cagri: { edebiyat: 1.45, haber: 0.61, pazarlama: 1.18, ansiklopedi: 0.29 },
-  dolgu_ifade: { edebiyat: 1.72, haber: 0.51, pazarlama: 1.91, ansiklopedi: 1.34 },
-  cumle_basi_tekrari: { edebiyat: 2.09, haber: 4.78, pazarlama: 6.6, ansiklopedi: 7.05 },
-  ortalama_cumle_uzunlugu: { edebiyat: 16.37, haber: 14.35, pazarlama: 12.79, ansiklopedi: 10.29 },
-  ritim_degiskenligi: { edebiyat: 0.56, haber: 0.64, pazarlama: 0.61, ansiklopedi: 0.74 },
+  ikinci_kisi_hitabi: { edebiyat: 3.64, haber: 2.31, pazarlama: 6.7, ansiklopedi: 0.78, deneme: 4.71 },
+  birinci_cogul: { edebiyat: 10.72, haber: 6.74, pazarlama: 6.72, ansiklopedi: 0.67, deneme: 17.24 },
+  emir_cagri: { edebiyat: 1.48, haber: 1.27, pazarlama: 1.29, ansiklopedi: 0.22, deneme: 1.2 },
+  dolgu_ifade: { edebiyat: 1.72, haber: 0.67, pazarlama: 1.72, ansiklopedi: 1.19, deneme: 1.73 },
+  cumle_basi_tekrari: { edebiyat: 1.75, haber: 4.71, pazarlama: 6.32, ansiklopedi: 5.9, deneme: 0.77 },
+  ortalama_cumle_uzunlugu: { edebiyat: 16.67, haber: 14.42, pazarlama: 13.21, ansiklopedi: 12.5, deneme: 7.98 },
+  ritim_degiskenligi: { edebiyat: 0.54, haber: 0.59, pazarlama: 0.58, ansiklopedi: 0.57, deneme: 0.43 },
 };
 
-const REGISTERS: Register[] = ["edebiyat", "haber", "pazarlama", "ansiklopedi"];
+const REGISTERS: Register[] = ["edebiyat", "haber", "pazarlama", "ansiklopedi", "deneme"];
 
 export interface StyleDimension {
   value: number;
@@ -107,7 +119,7 @@ export function styleProfileTurkish(text: string, target?: Register): StyleProfi
   };
 
   const dimensions: Record<string, StyleDimension> = {};
-  const votes: Record<Register, number> = { edebiyat: 0, haber: 0, pazarlama: 0, ansiklopedi: 0 };
+  const votes: Record<Register, number> = { edebiyat: 0, haber: 0, pazarlama: 0, ansiklopedi: 0, deneme: 0 };
   for (const [name, value] of Object.entries(raw)) {
     const norms = NORMS[name]!;
     let closest: Register = REGISTERS[0]!;

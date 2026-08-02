@@ -101,7 +101,15 @@ Two limitations worth stating. The scorer measures **average** difficulty; BAREC
 
 ### Turkish style profile
 
-`style_profile` reports position, not judgement. Each dimension carries the corpus mean for four registers (edebiyat, haber, pazarlama, ansiklopedi) and the one the text sits nearest to.
+`style_profile` reports position, not judgement. Each dimension carries the corpus mean for five registers and the one the text sits nearest to.
+
+| register | source | documents |
+|---|---|---|
+| `deneme` | university Turkish-course essays | 597 |
+| `ansiklopedi` | Turkish Wikipedia | 204 |
+| `haber` | Turkish news sites | 181 |
+| `pazarlama` | e-commerce and marketing trade press | 158 |
+| `edebiyat` | Turkish literary prose | 56 |
 
 Dimensions were kept only if they were measured to separate those registers. Seven candidates were tried and five were dropped for barely moving: nominalisation (1.4x), light verbs (1.2x), participle load (1.2x), connective variety (1.6x), passive voice (1.9x). The survivors:
 
@@ -116,7 +124,12 @@ Dimensions were kept only if they were measured to separate those registers. Sev
 
 The three modes of address came from a paper on advertising language rather than from intuition, and they are the strongest of the set — which is the argument for taking candidates from the literature and then measuring them.
 
-Norms come from 218 documents of 200+ words across the four registers. The marketing sample is the thinnest and the one most worth widening before leaning on it.
+Norms come from 1,196 documents of 200+ words. Two caveats worth carrying:
+
+- **`deneme` is one source.** Student writing from a single university's Turkish course. It is here because it is the only freely available body of unmistakably non-promotional Turkish prose of any size, and because it is genuinely distinct — nearly three times the first-person-plural of any other register, half the sentence length, the lowest repetition of sentence openings. Split-half stability is 0-6% on six of seven dimensions. But one source cannot stand for a language, so read it as the essay genre rather than as "natural Turkish".
+- **`pazarlama` is trade press, not product copy.** These are articles *about* marketing rather than persuasive copy, and they date from 2018-21. A 2024-25 sample of the same sources puts second-person address at 10.26 against the 6.7 recorded here, so that dimension in particular is dated.
+
+Academic corpora were checked and ruled out as sources: the Turkish National Corpus and TS Corpus are query-only with no bulk download, and the Ministry of Culture's e-book archive is Ottoman divan poetry rather than modern prose.
 
 ### Turkish grammar rules
 

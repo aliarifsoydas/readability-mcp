@@ -193,3 +193,29 @@ test("scoring survives degenerate input in every mode", async () => {
     }
   }
 });
+
+test("Turkish does not treat uniform sentence length as parallel structure", async () => {
+  // Short, consistent sentences are a deliberate device in Turkish guide and
+  // marketing prose. Scoring them as parallel structure pushed a human article
+  // to very_likely_ai; the length half of the rule is off for Turkish only.
+  const guide =
+    "Kuleyi sahil yolundan görebilirsiniz. Vapurdan fotoğrafını çekebilirsiniz.\n" +
+    "Kanoda gözünüz suyun az üstündedir. Akıntı yanından akıp gider.\n" +
+    "Boğaz akar. Kule üstünüzde yükselir. Vapurlar devasa görünür.";
+  const r = await aiDetectScore(guide, { language: "tr" });
+  assert.equal(r.signals.parallel_structure.score, 0);
+
+  // A real anaphora run is still caught.
+  const anaphora =
+    "Şirketler dijital araçlar kullanıyor. Şirketler süreçleri gözden geçiriyor. " +
+    "Şirketler eğitime yatırım yapıyor. Şirketler yeni pazarlara açılıyor.";
+  const a = await aiDetectScore(anaphora, { language: "tr" });
+  assert.ok(a.signals.parallel_structure.score > 0);
+  assert.equal(a.signals.parallel_structure.runs[0].matched_on, "opening");
+});
+
+test("the other languages keep the sentence-length criterion", async () => {
+  const en = "Our platform helps teams. It ships fast today. We support you well. They trust us here.";
+  const r = await aiDetectScore(en, { language: "en" });
+  assert.ok(r.signals.parallel_structure.score > 0, "English lost the length criterion");
+});

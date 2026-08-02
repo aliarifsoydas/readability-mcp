@@ -354,12 +354,32 @@ function fragmentListSignal(paragraphs: string[], lang: SupportedLanguage): Frag
 
 interface ParallelStructureSignal {
   score: number;
-  runs: { start_sentence: number; length: number; pattern: string }[];
+  runs: { start_sentence: number; length: number; pattern: string; matched_on?: "opening" | "length" }[];
   reason?: Reason;
 }
 
-function parallelStructureSignal(sentences: string[]): ParallelStructureSignal {
-  const runs: { start_sentence: number; length: number; pattern: string }[] = [];
+/**
+ * Two consecutive sentences count as parallel when they open with the same word,
+ * and — for most languages — when their lengths are within two words of each
+ * other. Turkish opts out of the length half.
+ *
+ * The length rule turned out to detect short, consistent sentences rather than
+ * parallel structure, which is a deliberate device in Turkish travel and
+ * marketing prose. Measured: a human guide article scored 100 and was pushed to
+ * `very_likely_ai`; folk tales scored 100; 6 of 22 tale documents and 9 of 27
+ * statutes crossed 60. With the length rule off all of those fall to 0 while a
+ * genuine anaphora run ("Şirketler… Şirketler… Şirketler…") is unchanged.
+ * Sentence-length uniformity is already what `burstiness` measures, so the rule
+ * was also double-counting it.
+ */
+const PARALLEL_USES_LENGTH: Record<SupportedLanguage, boolean> = {
+  en: true, es: true, de: true, fr: true, it: true, ru: true, ar: true,
+  tr: false,
+};
+
+function parallelStructureSignal(sentences: string[], lang: SupportedLanguage): ParallelStructureSignal {
+  const runs: { start_sentence: number; length: number; pattern: string; matched_on: "opening" | "length" }[] = [];
+  const useLength = PARALLEL_USES_LENGTH[lang];
   if (sentences.length < 3) return { score: 0, runs: [] };
   const firstWords = sentences.map((s) => {
     const w = splitWords(s);
@@ -368,24 +388,41 @@ function parallelStructureSignal(sentences: string[]): ParallelStructureSignal {
   const lengths = sentences.map((s) => splitWords(s).length);
   let runStart = 0;
   let runLen = 1;
+  let runOnOpening = false;
   for (let i = 1; i < sentences.length; i++) {
     const fwCurr = firstWords[i] ?? "";
     const fwPrev = firstWords[i - 1] ?? "";
     const lenCurr = lengths[i] ?? 0;
     const lenPrev = lengths[i - 1] ?? 0;
     const sameStart = fwCurr.length > 0 && fwCurr === fwPrev;
-    const closeLength = Math.abs(lenCurr - lenPrev) <= 2;
-    if (sameStart || (closeLength && lenCurr >= 4 && lenCurr <= 12)) {
+    const closeLength = useLength && Math.abs(lenCurr - lenPrev) <= 2 && lenCurr >= 4 && lenCurr <= 12;
+    if (sameStart || closeLength) {
+      if (sameStart) runOnOpening = true;
       runLen++;
     } else {
       if (runLen >= 3) {
-        runs.push({ start_sentence: runStart, length: runLen, pattern: firstWords[runStart] ?? "" });
+        runs.push({
+          start_sentence: runStart,
+          length: runLen,
+          pattern: firstWords[runStart] ?? "",
+          // Without this the evidence reads as "5 sentences opening with X" even
+          // when it was sentence length that linked them and the openings differ.
+          matched_on: runOnOpening ? "opening" : "length",
+        });
       }
       runStart = i;
       runLen = 1;
+      runOnOpening = false;
     }
   }
-  if (runLen >= 3) runs.push({ start_sentence: runStart, length: runLen, pattern: firstWords[runStart] ?? "" });
+  if (runLen >= 3) {
+    runs.push({
+      start_sentence: runStart,
+      length: runLen,
+      pattern: firstWords[runStart] ?? "",
+      matched_on: runOnOpening ? "opening" : "length",
+    });
+  }
 
   const score = runs.length === 0 ? 0 : Math.min(100, runs.reduce((s, r) => s + (r.length - 2) * 12, 0));
   let reason: Reason | undefined;
@@ -754,7 +791,7 @@ export async function aiDetectScore(text: string, opts: AiDetectOptions = {}): P
   const burstiness = burstinessSignal(sentences);
   const ai_phrases = aiPhraseSignal(text, lang, sentences.length);
   const fragment_lists = fragmentListSignal(paragraphs, lang);
-  const parallel_structure = parallelStructureSignal(sentences);
+  const parallel_structure = parallelStructureSignal(sentences, lang);
   const em_dash = emDashSignal(text, sentences.length, lang);
   const not_x_but_y = notXButYSignal(text, lang, sentences.length);
 

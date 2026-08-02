@@ -7,6 +7,7 @@ import { flowScore } from "./flow.js";
 import { seoScore, SUPPORTED_FORMULAS, type Formula } from "./seo.js";
 import { aiDetectScore } from "./aidetect.js";
 import { checkTurkish } from "./grammar/tr.js";
+import { styleProfileTurkish } from "./style/tr.js";
 import { renderDocsHtml, renderOpenApi } from "./docs.js";
 import { checkAuth, renderUiHtml } from "./ui.js";
 import type { PanelTier } from "./llm_panel.js";
@@ -210,6 +211,21 @@ export class ReadabilityMCP extends McpAgent {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };
       },
+    );
+
+    this.server.tool(
+      "style_profile",
+      {
+        text: z.string().min(1).describe("The text to profile."),
+        language: z.enum(["tr"]).optional().describe("Only Turkish is supported."),
+        target: z
+          .enum(["edebiyat", "haber", "pazarlama", "ansiklopedi"])
+          .optional()
+          .describe("Optional register to measure deviation against."),
+      },
+      async ({ text, target }) => ({
+        content: [{ type: "text", text: JSON.stringify(styleProfileTurkish(text, target), null, 2) }],
+      }),
     );
 
     this.server.tool(

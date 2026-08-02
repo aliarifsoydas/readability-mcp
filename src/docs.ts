@@ -379,6 +379,48 @@ export const TOOLS: ToolDoc[] = [
     },
   },
   {
+    name: "style_profile",
+    summary: "Where a Turkish text sits between registers, per dimension.",
+    description:
+      "A profile, not a score. Style has no universal optimum — a statute is supposed to be nominal and impersonal and marketing copy is not — so the output is where the text sits relative to four registers (edebiyat, haber, pazarlama, ansiklopedi) on each dimension, plus the nearest register overall. Pass `target` to get the signed deviation from that register's norms. Dimensions were kept only if they were measured to separate registers on a four-register Turkish corpus; five candidates were dropped for barely moving (nominalisation 1.4x, light verbs 1.2x, participle load 1.2x, connective variety 1.6x, passive voice 1.9x). The three modes of address are the strongest at 12.7x, 16.1x and 4.9x.",
+    params: [
+      { name: "text", type: "string", required: true, description: "Text to profile." },
+      { name: "language", type: "string", required: false, description: "Only Turkish is supported.", default: "tr", enum: ["tr"] },
+      { name: "target", type: "string", required: false, description: "Register to measure deviation against.", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+    ],
+    output_summary: "{ language, target?, closest_register, dimensions, notes, stats }",
+    output_schema: {
+      type: "object",
+      properties: {
+        language: { type: "string", enum: ["tr"] },
+        target: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+        closest_register: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+        dimensions: {
+          type: "object",
+          description: "Keyed by dimension name.",
+          additionalProperties: {
+            type: "object",
+            properties: {
+              value: NUM,
+              norms: { type: "object", additionalProperties: NUM, description: "Corpus mean per register." },
+              closest: { type: "string", enum: ["edebiyat", "haber", "pazarlama", "ansiklopedi"] },
+              deviation: { ...NUM, description: "Signed distance from the target register. Present only when `target` was given." },
+            },
+            required: ["value", "norms", "closest"],
+          },
+        },
+        notes: { type: "array", items: STR, description: "Caveats, such as the text being too short to profile reliably." },
+        stats: { type: "object", properties: { sentences: NUM, words: NUM } },
+      },
+      required: ["language", "closest_register", "dimensions", "notes", "stats"],
+    },
+    example_request: { text: "Kuleyi sahil yolundan görebilirsiniz.", target: "pazarlama" },
+    example_response_excerpt: {
+      closest_register: "edebiyat",
+      dimensions: { ikinci_kisi_hitabi: { value: 28.85, closest: "pazarlama", deviation: 22.54 } },
+    },
+  },
+  {
     name: "detect_language",
     summary: "Detect the language of a given text.",
     description: "Script check for Arabic and Cyrillic, then a stopword-frequency + diacritic heuristic across the Latin-script languages. Fast, deterministic, no external calls.",

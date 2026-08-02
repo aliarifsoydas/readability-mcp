@@ -44,6 +44,7 @@ Set `language: "auto"` (default) for detection: Arabic and Cyrillic text is reso
   ```
   Typical cost: **$0.012–0.08 per article** depending on how often premium runs.
 - `grammar_check(text)` — **Turkish only.** Rule-based orthography check returning located findings with suggested corrections. Free, in-Worker, no LLM. See below for what it does and does not check.
+- `style_profile(text, target?)` — **Turkish only.** Where the text sits between four registers on each dimension, with the deviation from a target register. A profile rather than a score, because style has no universal optimum.
 - `detect_language(text)` — return the detected language code.
 - `list_supported_languages()` — list languages, readability metrics, and flow metrics.
 
@@ -97,6 +98,25 @@ Arabic is written without short vowels, so its syllables are not recoverable fro
 For reference, `textstat` — the usual off-the-shelf choice — scores −0.54 on the same data, and only because its syllable counter is inert on Arabic, which degenerates Flesch into a sentence-length proxy. OSMAN and the two syllable-based formulas are deliberately absent rather than carried for the sake of citing them.
 
 Two limitations worth stating. The scorer measures **average** difficulty; BAREC's own document label is the level of a document's single hardest sentence, which a surface average cannot predict (ρ 0.62 against that target versus 0.77 against average difficulty). And **fragment detection is disabled for Arabic**: the nominal sentence carries no verb and is a complete, very common construction — *العلم نور* is a full sentence — so a determiner-keyed rule flags 7.8% of ordinary short sentences, about half of them grammatical. The same call was made for Turkish, for the same reason.
+
+### Turkish style profile
+
+`style_profile` reports position, not judgement. Each dimension carries the corpus mean for four registers (edebiyat, haber, pazarlama, ansiklopedi) and the one the text sits nearest to.
+
+Dimensions were kept only if they were measured to separate those registers. Seven candidates were tried and five were dropped for barely moving: nominalisation (1.4x), light verbs (1.2x), participle load (1.2x), connective variety (1.6x), passive voice (1.9x). The survivors:
+
+| dimension | spread between registers |
+|---|---|
+| `birinci_cogul` — the "we" voice | 16.1x |
+| `ikinci_kisi_hitabi` — second person address | 12.7x |
+| `emir_cagri` — imperative calls to act | 4.9x |
+| `dolgu_ifade` — set phrases that pad | 3.6x |
+| `cumle_basi_tekrari` — repeated sentence openings | 3.4x |
+| `ortalama_cumle_uzunlugu`, `ritim_degiskenligi` | from `flow_score` |
+
+The three modes of address came from a paper on advertising language rather than from intuition, and they are the strongest of the set — which is the argument for taking candidates from the literature and then measuring them.
+
+Norms come from 218 documents of 200+ words across the four registers. The marketing sample is the thinnest and the one most worth widening before leaning on it.
 
 ### Turkish grammar rules
 

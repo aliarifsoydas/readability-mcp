@@ -81,12 +81,28 @@ test("ai_score output and its signal set match the schema", async () => {
 
 test("the documented language enums match the supported set", () => {
   for (const t of TOOLS) {
+    // A tool may support every language or deliberately narrow itself to a few
+    // (grammar_check is Turkish only); either way it may never list a language
+    // the scorer does not support.
     const param = t.params.find((p) => p.name === "language");
     if (param?.enum) {
-      assert.deepEqual(param.enum, ["auto", ...SUPPORTED_LANGUAGES], `${t.name} language enum is stale`);
+      const declared = param.enum.filter((l) => l !== "auto");
+      for (const lang of declared) {
+        assert.ok(SUPPORTED_LANGUAGES.includes(lang), `${t.name} lists unsupported language ${lang}`);
+      }
+      if (declared.length === SUPPORTED_LANGUAGES.length) {
+        assert.deepEqual(param.enum, ["auto", ...SUPPORTED_LANGUAGES], `${t.name} language enum is stale`);
+      }
     }
     const prop = t.output_schema.properties?.language;
-    if (prop?.enum) assert.deepEqual(prop.enum, [...SUPPORTED_LANGUAGES], `${t.name} response enum is stale`);
+    if (prop?.enum) {
+      for (const lang of prop.enum) {
+        assert.ok(SUPPORTED_LANGUAGES.includes(lang), `${t.name} response lists unsupported language ${lang}`);
+      }
+      if (prop.enum.length === SUPPORTED_LANGUAGES.length) {
+        assert.deepEqual(prop.enum, [...SUPPORTED_LANGUAGES], `${t.name} response enum is stale`);
+      }
+    }
   }
 });
 

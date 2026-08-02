@@ -6,6 +6,7 @@ import { extractFromUrl } from "./extract.js";
 import { flowScore } from "./flow.js";
 import { seoScore, SUPPORTED_FORMULAS, type Formula } from "./seo.js";
 import { aiDetectScore } from "./aidetect.js";
+import { checkTurkish } from "./grammar/tr.js";
 import { renderDocsHtml, renderOpenApi } from "./docs.js";
 import { checkAuth, renderUiHtml } from "./ui.js";
 import type { PanelTier } from "./llm_panel.js";
@@ -188,6 +189,23 @@ export class ReadabilityMCP extends McpAgent {
               }
             : undefined,
         });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
+
+    this.server.tool(
+      "grammar_check",
+      {
+        text: z.string().min(1).describe("The text to check for orthography errors."),
+        language: z
+          .enum(["tr"])
+          .optional()
+          .describe("Only Turkish is supported. Other languages have no rule set yet."),
+      },
+      async ({ text }) => {
+        const result = checkTurkish(text);
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };

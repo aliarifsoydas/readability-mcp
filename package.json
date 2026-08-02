@@ -20,7 +20,10 @@
     "benchmark:lead": "node benchmark/lead-body.mjs",
     "prebenchmark:lead": "npm run build:test",
     "benchmark:tr": "node benchmark/tr-registers.mjs",
-    "prebenchmark:tr": "npm run build:test"
+    "prebenchmark:tr": "npm run build:test",
+    "build:lexicon": "node scripts/build-lexicon.mjs",
+    "benchmark:grammar": "node benchmark/grammar-tr.mjs",
+    "prebenchmark:grammar": "npm run build:test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

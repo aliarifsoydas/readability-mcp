@@ -43,6 +43,7 @@ Set `language: "auto"` (default) for detection: Arabic and Cyrillic text is reso
       result = ai_score(text, tier="premium")    # final QA
   ```
   Typical cost: **$0.012–0.08 per article** depending on how often premium runs.
+- `grammar_check(text)` — **Turkish only.** Rule-based orthography check returning located findings with suggested corrections. Free, in-Worker, no LLM. See below for what it does and does not check.
 - `detect_language(text)` — return the detected language code.
 - `list_supported_languages()` — list languages, readability metrics, and flow metrics.
 
@@ -96,6 +97,32 @@ Arabic is written without short vowels, so its syllables are not recoverable fro
 For reference, `textstat` — the usual off-the-shelf choice — scores −0.54 on the same data, and only because its syllable counter is inert on Arabic, which degenerates Flesch into a sentence-length proxy. OSMAN and the two syllable-based formulas are deliberately absent rather than carried for the sake of citing them.
 
 Two limitations worth stating. The scorer measures **average** difficulty; BAREC's own document label is the level of a document's single hardest sentence, which a surface average cannot predict (ρ 0.62 against that target versus 0.77 against average difficulty). And **fragment detection is disabled for Arabic**: the nominal sentence carries no verb and is a complete, very common construction — *العلم نور* is a full sentence — so a determiner-keyed rule flags 7.8% of ordinary short sentences, about half of them grammatical. The same call was made for Turkish, for the same reason.
+
+### Turkish grammar rules
+
+`grammar_check` ships three rules. Each was measured against the **42,449 attested example sentences in the TDK dictionary** — text that is correct by definition, so every hit there is a false positive — and only rules under 0.5% were kept.
+
+| rule | false positives | |
+|---|---|---|
+| `kesme_isareti_tutarsiz` | 0.08% | straight `'` and typographic `’` mixed in one document |
+| `ek_uyumu` | 0.41% | a suffix that disagrees with the stem's last vowel (*kitapler* → *kitaplar*) |
+| `baglac_ki_bitisik` | 0.02% | the conjunction *ki* written joined (*demekki* → *demek ki*) |
+
+Two rules were measured and **deliberately excluded**:
+
+- **Question particle** (0.66%) — *kendimi*, *fikrimi* are accusatives, not questions, and separating them needs to know the stem is a verb, which a lemma list cannot say.
+- **da/de conjunction** (6.43%) — the famous one. *okulda* as a locative and *okul da* as a conjunction are both correct, and nothing in the morphology distinguishes them; only meaning does. It belongs to a semantic tier, not here.
+
+Recall is limited by design. The harmony rule is anchored at the end of the word: letting the suffix sit mid-word to catch *defter+ler+i* was measured and took false positives from 0.41% to 2.34%, so an error is only caught when the harmony suffix is the last one. Turkish is agglutinative and the lexicon holds lemmas, so errors on inflected stems (*yorgundumki*) are missed.
+
+The lexicon is generated from a local copy of the TDK Güncel Türkçe Sözlük and **is not in this repository**:
+
+```bash
+npm run build:lexicon -- /path/to/v12.gts.sqlite3.db   # writes src/grammar/tr-lexicon.generated.ts
+npm run benchmark:grammar -- /path/to/v12.gts.sqlite3.db
+```
+
+Without it, `grammar_check` still runs the apostrophe rule and reports the rest in `skipped_rules` rather than silently passing.
 
 ## Browse the tool catalog
 

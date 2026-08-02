@@ -13,3 +13,6 @@ benchmark/corpus-lead/
 benchmark/corpus-tr/
 .DS_Store
 *.log
+
+# generated from a local TDK dictionary, not redistributed
+src/grammar/tr-lexicon.generated.ts

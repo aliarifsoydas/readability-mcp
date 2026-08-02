@@ -334,6 +334,51 @@ export const TOOLS: ToolDoc[] = [
     },
   },
   {
+    name: "grammar_check",
+    summary: "Turkish orthography check with located findings.",
+    description:
+      "Rule-based spelling checks for Turkish, free and in-Worker. Every rule was measured against the 42,449 attested example sentences in the TDK dictionary — text correct by definition, so any hit there is a false positive — and only rules under 0.5% were kept: apostrophe consistency (0.08%), suffix vowel harmony (0.41%) and the conjunction 'ki' written joined (0.02%). Two rules were measured and deliberately excluded: the question particle (0.66%) and the famous da/de conjunction (6.43%), which morphology cannot separate from the locative suffix — 'okulda' and 'okul da' are both correct and only meaning distinguishes them. The lexicon behind the last two rules is generated from a local dictionary and is not redistributed; when it is absent the response says so in `skipped_rules` rather than silently passing.",
+    params: [
+      { name: "text", type: "string", required: true, description: "Text to check." },
+      { name: "language", type: "string", required: false, description: "Only Turkish is supported.", default: "tr", enum: ["tr"] },
+    ],
+    output_summary: "{ language, findings[], findings_per_sentence, score_100, lexicon_available, checked_rules, skipped_rules, stats }",
+    output_schema: {
+      type: "object",
+      properties: {
+        language: { type: "string", enum: ["tr"] },
+        findings: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              rule: { ...STR, description: "kesme_isareti_tutarsiz | ek_uyumu | baglac_ki_bitisik" },
+              severity: { type: "string", enum: ["low", "medium", "high"] },
+              message: { ...STR, description: "Localized explanation." },
+              sentence: { ...NUM, description: "Sentence index, or -1 for a document-level finding." },
+              excerpt: STR,
+              suggestion: { ...STR, description: "The corrected form, when one can be derived." },
+            },
+            required: ["rule", "severity", "message", "sentence"],
+          },
+        },
+        findings_per_sentence: NUM,
+        score_100: { ...NUM, description: "100 with no findings, falling as they accumulate." },
+        lexicon_available: { type: "boolean", description: "False when the generated Turkish lexicon is absent." },
+        checked_rules: { type: "array", items: STR },
+        skipped_rules: { type: "array", items: STR, description: "Rules that need the lexicon and could not run." },
+        stats: { type: "object", properties: { sentences: NUM, words: NUM } },
+      },
+      required: ["language", "findings", "score_100", "lexicon_available", "checked_rules", "skipped_rules", "stats"],
+    },
+    example_request: { text: "Kız Kulesi'ni gördük. Hero’ya ulaştı." },
+    example_response_excerpt: {
+      language: "tr",
+      score_100: 92.73,
+      findings: [{ rule: "kesme_isareti_tutarsiz", severity: "low", message: "Kesme işareti tutarsız: 2 düz (') ve 2 kıvrık (’) kullanılmış." }],
+    },
+  },
+  {
     name: "detect_language",
     summary: "Detect the language of a given text.",
     description: "Script check for Arabic and Cyrillic, then a stopword-frequency + diacritic heuristic across the Latin-script languages. Fast, deterministic, no external calls.",

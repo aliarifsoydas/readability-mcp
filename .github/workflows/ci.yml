@@ -32,4 +32,9 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npm run benchmark
+      # Only the two that download a fixed archive. The paired and Turkish
+      # benchmarks walk the Wikipedia and Wikisource APIs article by article,
+      # which takes far too long for CI and is unkind to those services; run
+      # them by hand.
+      - run: npm run benchmark:ru
+      - run: npm run benchmark:ar
